@@ -1,8 +1,10 @@
 package com.aman.auramusic.ui.screen.hometest
 
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -60,10 +62,12 @@ fun HomeTestScreen(
     onRemoveSavedOnlineArtist: ((String) -> Unit)? = null,
     onSaveOnlineAlbum: ((OnlinePlaylist) -> Unit)? = null,
     onRemoveSavedOnlineAlbum: ((String) -> Unit)? = null,
+    homeResetKey: Int = 0,
     modifier: Modifier = Modifier,
     viewModel: HomeTestViewModel = hiltViewModel()
 ) {
     val isDark = LocalIsDark.current
+    val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
@@ -85,6 +89,23 @@ fun HomeTestScreen(
 
     LaunchedEffect(songs, history) {
         viewModel.loadData(songs, history)
+    }
+
+    // Reselecting Home must dismiss in-screen detail overlays, even when Home was
+    // already the selected bottom-navigation tab.
+    LaunchedEffect(homeResetKey) {
+        if (homeResetKey > 0) {
+            selectedArtist = null
+            artistOnlineSongs = emptyList()
+            artistLocalSongs = emptyList()
+            artistOnlineAlbums = emptyList()
+            selectedOnlineAlbum = null
+            selectedOnlineAlbumSongs = emptyList()
+            selectedCategory = null
+            categoryOnlineSongs = emptyList()
+            categoryLocalSongs = emptyList()
+            selectedSongOptions = null
+        }
     }
 
     // Dynamic greeting based on time of day
@@ -382,9 +403,11 @@ fun HomeTestScreen(
             )
         } else if (selectedArtist != null) {
             val curArtist = selectedArtist!!
-            val isArtistSaved = savedOnlineArtists.any {
-                it.id == curArtist.artistId || (it.name.equals(curArtist.name, ignoreCase = true) && curArtist.isOnline)
+            val savedArtistEntry = savedOnlineArtists.firstOrNull {
+                (curArtist.artistId.isNotBlank() && it.id == curArtist.artistId) ||
+                    it.name.equals(curArtist.name, ignoreCase = true)
             }
+            val isArtistSaved = savedArtistEntry != null
             ArtistDetailSheet(
                 artist = curArtist,
                 onlineSongs = artistOnlineSongs,
@@ -394,25 +417,17 @@ fun HomeTestScreen(
                 isSavedInLibrary = isArtistSaved,
                 onToggleSaveToLibrary = {
                     if (isArtistSaved) {
-                        val savedId = savedOnlineArtists.find {
-                            it.id == curArtist.artistId || it.name.equals(curArtist.name, ignoreCase = true)
-                        }?.id ?: curArtist.artistId
-                        onRemoveSavedOnlineArtist?.invoke(savedId)
+                        savedArtistEntry?.let { onRemoveSavedOnlineArtist?.invoke(it.id) }
                     } else {
-                        val artistIdToSave = if (curArtist.artistId.isNotBlank() && !curArtist.artistId.startsWith("local_")) {
-                            curArtist.artistId
-                        } else {
-                            YouTubeArtistRepositoryImpl.getCachedArtist(curArtist.name)?.id.orEmpty()
-                        }
-                        if (artistIdToSave.isNotBlank() && !artistIdToSave.startsWith("local_")) {
-                            onSaveOnlineArtist?.invoke(
-                                SavedOnlineArtist(
-                                    id = artistIdToSave,
-                                    name = curArtist.name,
-                                    profileImageUrl = curArtist.artworkModel as? String,
-                                    source = AudioSource.YOUTUBE
-                                )
-                            )
+                        // Resolve a genuine provider artist ID even when the profile was
+                        // opened from a local-library artist card with local songs.
+                        coroutineScope.launch {
+                            val resolved = viewModel.resolveArtistForLibrary(curArtist)
+                            if (resolved != null) {
+                                onSaveOnlineArtist?.invoke(resolved)
+                            } else {
+                                Toast.makeText(context, "Could not resolve artist for library", Toast.LENGTH_SHORT).show()
+                            }
                         }
                     }
                 },

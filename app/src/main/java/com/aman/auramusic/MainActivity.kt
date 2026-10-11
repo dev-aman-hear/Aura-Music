@@ -98,6 +98,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -263,6 +264,7 @@ fun MusicScreen(musicViewModel: MusicViewModel) {
     var hasAttemptedRestore by remember { mutableStateOf(false) }
 
     var selectedTab by remember { mutableStateOf(AppTab.Home) }
+    var homeReselectKey by remember { mutableIntStateOf(0) }
     var showPlayer by remember { mutableStateOf(false) }
     var showSettings by remember { mutableStateOf(false) }
 
@@ -707,7 +709,8 @@ fun MusicScreen(musicViewModel: MusicViewModel) {
                                     onSaveOnlineArtist = { musicViewModel.saveOnlineArtistToLibrary(it) },
                                     onRemoveSavedOnlineArtist = { musicViewModel.removeOnlineArtistFromLibrary(it) },
                                     onSaveOnlineAlbum = { musicViewModel.saveOnlineAlbumToLibrary(it) },
-                                    onRemoveSavedOnlineAlbum = { musicViewModel.removeOnlineAlbumFromLibrary(it) }
+                                    onRemoveSavedOnlineAlbum = { musicViewModel.removeOnlineAlbumFromLibrary(it) },
+                                    homeResetKey = homeReselectKey
                                 )
                                 AppTab.Online -> OnlineScreen(
                                     onlinePlaybackManager = onlinePlaybackManager,
@@ -823,6 +826,9 @@ fun MusicScreen(musicViewModel: MusicViewModel) {
                         BottomNavBar(
                             selectedTab = selectedTab,
                             onTabSelected = { 
+                                if (it == AppTab.Home && selectedTab == AppTab.Home) {
+                                    homeReselectKey++
+                                }
                                 selectedTab = it
                                 showSettings = false
                                 selectedPlaylistId = null

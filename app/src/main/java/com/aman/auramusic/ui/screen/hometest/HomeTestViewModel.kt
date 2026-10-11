@@ -15,6 +15,7 @@ import com.aman.auramusic.online.filter.SectionDeduplicator
 import com.aman.auramusic.online.network.repository.OnlineMusicRepository
 import com.aman.auramusic.util.formatDuration
 import com.google.gson.Gson
+import com.google.gson.reflect.TypeToken
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -111,6 +112,19 @@ class HomeTestViewModel @Inject constructor(
 ) : AndroidViewModel(application) {
 
     private val dailyCache = DailyFeaturedCache(application.applicationContext)
+    private val feedCachePrefs = application.getSharedPreferences("aura_home_feed_cache", android.app.Application.MODE_PRIVATE)
+    private val feedCacheTtlMs = 6L * 60L * 60L * 1000L
+
+    private inline fun <reified T> readCachedList(key: String): List<T> = runCatching {
+        Gson().fromJson<List<T>>(
+            feedCachePrefs.getString(key, null),
+            object : TypeToken<List<T>>() {}.type
+        ).orEmpty()
+    }.getOrDefault(emptyList())
+
+    private fun writeCachedList(key: String, value: Any) {
+        feedCachePrefs.edit().putString(key, Gson().toJson(value)).apply()
+    }
     private val _uiState = MutableStateFlow(HomeTestUiState())
     val uiState: StateFlow<HomeTestUiState> = _uiState.asStateFlow()
 
@@ -289,7 +303,23 @@ class HomeTestViewModel @Inject constructor(
             var onlineArtistsDiscovered = emptyList<com.aman.auramusic.online.network.repository.YouTubeArtist>()
             var featuredTracks = emptyList<OnlineSong>()
 
-            try {
+            val cachedAt = feedCachePrefs.getLong("fetched_at", 0L)
+            val feedCacheFresh = !forceRefresh && cachedAt > 0L &&
+                System.currentTimeMillis() - cachedAt in 0..feedCacheTtlMs
+
+            var cacheUsable = false
+            if (feedCacheFresh) {
+                rawTrendingOnline = readCachedList("trending")
+                rawQuickHitsOnline = readCachedList("quick_hits")
+                curatedPlaylists = readCachedList("playlists")
+                onlineArtistsDiscovered = readCachedList("artists")
+                featuredTracks = readCachedList("featured_tracks")
+                cacheUsable = rawTrendingOnline.isNotEmpty() || rawQuickHitsOnline.isNotEmpty() ||
+                    curatedPlaylists.isNotEmpty() || onlineArtistsDiscovered.isNotEmpty()
+            }
+
+            if (!cacheUsable) {
+                try {
                 // Independent pipelines for Trending Now, Quick Hits, Playlists, and Artists
                 withContext(Dispatchers.IO) {
                     val playlistsDeferred = async {
@@ -333,8 +363,22 @@ class HomeTestViewModel @Inject constructor(
                     rawQuickHitsOnline = quickHitsDeferred.await()
                     onlineArtistsDiscovered = ytArtistsDeferred.await()
                 }
-            } catch (e: Exception) {
-                isOfflineDetected = true
+
+                } catch (e: Exception) {
+                    isOfflineDetected = true
+                }
+
+                // If network fetch failed or returned empty, preserve usable cached content
+                if (rawTrendingOnline.isEmpty() && rawQuickHitsOnline.isEmpty() &&
+                    curatedPlaylists.isEmpty() && onlineArtistsDiscovered.isEmpty()) {
+                    rawTrendingOnline = readCachedList("trending")
+                    rawQuickHitsOnline = readCachedList("quick_hits")
+                    curatedPlaylists = readCachedList("playlists")
+                    onlineArtistsDiscovered = readCachedList("artists")
+                    if (featuredTracks.isEmpty()) {
+                        featuredTracks = readCachedList("featured_tracks")
+                    }
+                }
             }
 
             // 1. Resolve Daily Featured Item (Refreshes once per day)
@@ -350,7 +394,7 @@ class HomeTestViewModel @Inject constructor(
             }
 
             // 2. Fetch tracks belonging to Daily Featured Playlist / Album
-            if (featured?.onlinePlaylistId != null) {
+            if (!cacheUsable && featured?.onlinePlaylistId != null && featuredTracks.isEmpty()) {
                 val plObj = curatedPlaylists.find { it.id == featured.onlinePlaylistId }
                     ?: OnlinePlaylist(id = featured.onlinePlaylistId!!, title = featured.title, source = AudioSource.ALL)
                 withContext(Dispatchers.IO) {
@@ -375,7 +419,7 @@ class HomeTestViewModel @Inject constructor(
 
             // Allocate Trending Songs (guaranteed zero overlap with Daily Featured)
             var cleanTrending = ExplicitTitleFilter.filterOnline(rawTrendingOnline).filter { deduplicator.allocate(it) }
-            if (cleanTrending.size < 10) {
+            if (!cacheUsable && cleanTrending.size < 10) {
                 withContext(Dispatchers.IO) {
                     val secondary = try {
                         onlineRepository.search("Billboard Hot 100 2026", AudioSource.YOUTUBE)
@@ -383,7 +427,17 @@ class HomeTestViewModel @Inject constructor(
                     val cleanSecondary = ExplicitTitleFilter.filterOnline(onlineRepository.trendingFilter.filterSongs(secondary))
                         .filter { deduplicator.allocate(it) }
                     cleanTrending = (cleanTrending + cleanSecondary).take(20)
+                    rawTrendingOnline = (rawTrendingOnline + secondary).distinctBy { "${it.source.name}_${it.id}" }
                 }
+            }
+
+            if (!cacheUsable && (rawTrendingOnline.isNotEmpty() || rawQuickHitsOnline.isNotEmpty() || curatedPlaylists.isNotEmpty() || onlineArtistsDiscovered.isNotEmpty())) {
+                feedCachePrefs.edit().putLong("fetched_at", System.currentTimeMillis()).apply()
+                writeCachedList("trending", rawTrendingOnline)
+                writeCachedList("quick_hits", rawQuickHitsOnline)
+                writeCachedList("playlists", curatedPlaylists)
+                writeCachedList("artists", onlineArtistsDiscovered)
+                writeCachedList("featured_tracks", featuredTracks)
             }
 
             // Map Trending Songs with matching local tracks
@@ -861,6 +915,49 @@ class HomeTestViewModel @Inject constructor(
             onlineAlbums = catalogue.albums
         )
     }
+
+    /**
+     * Resolve a genuine YouTube Music artist entity for the Save to Library action.
+     * Local songs are not a prerequisite for saving an artist.
+     */
+    suspend fun resolveArtistForLibrary(artist: ArtistItem): com.aman.auramusic.online.model.SavedOnlineArtist? =
+        withContext(Dispatchers.IO) {
+            val name = artist.name.trim()
+            if (name.isBlank()) return@withContext null
+
+            val existing = if (artist.artistId.isNotBlank() &&
+                !artist.artistId.startsWith("local_") &&
+                !artist.artistId.startsWith("yt_artist_")
+            ) {
+                cachedDiscoveredArtists.firstOrNull { it.id == artist.artistId }
+                    ?: localArtistMetadataCache.values.firstOrNull { it.id == artist.artistId }
+                    ?: com.aman.auramusic.online.network.repository.YouTubeArtist(
+                        id = artist.artistId,
+                        name = artist.name,
+                        profileImageUrl = artist.artworkModel as? String
+                    )
+            } else {
+                localArtistMetadataCache[normalizeArtistComparable(name)]
+                    ?: cachedDiscoveredArtists.firstOrNull { matchesArtistName(it.name, name) }
+            }
+
+            val resolved = existing ?: runCatching {
+                youtubeArtistRepository.searchArtists(name)
+                    .firstOrNull { matchesArtistName(it.name, name) }
+            }.getOrNull() ?: return@withContext null
+
+            if (resolved.id.isBlank() || resolved.id.startsWith("local_") || resolved.id.startsWith("yt_artist_")) {
+                return@withContext null
+            }
+
+            localArtistMetadataCache[normalizeArtistComparable(name)] = resolved
+            com.aman.auramusic.online.model.SavedOnlineArtist(
+                id = resolved.id,
+                name = resolved.name.ifBlank { name },
+                profileImageUrl = resolved.profileImageUrl ?: artist.artworkModel as? String,
+                source = AudioSource.YOUTUBE
+            )
+        }
 
     suspend fun fetchArtistSongs(
         artist: ArtistItem,
