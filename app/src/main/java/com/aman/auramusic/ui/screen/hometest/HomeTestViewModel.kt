@@ -10,6 +10,7 @@ import com.aman.auramusic.online.model.AudioSource
 import com.aman.auramusic.online.model.OnlinePlaylist
 import com.aman.auramusic.online.model.OnlineSong
 import com.aman.auramusic.online.filter.RecommendationDeduplicator
+import com.aman.auramusic.online.filter.ExplicitTitleFilter
 import com.aman.auramusic.online.filter.SectionDeduplicator
 import com.aman.auramusic.online.network.repository.OnlineMusicRepository
 import com.aman.auramusic.util.formatDuration
@@ -242,10 +243,13 @@ class HomeTestViewModel @Inject constructor(
         forceRefresh: Boolean = false
     ) {
         viewModelScope.launch {
-            val listenAgainColumns = buildListenAgainFeed(localSongs, history)
+            val recommendationLocalSongs = localSongs.filterNot {
+                ExplicitTitleFilter.shouldHideTitle(it.title)
+            }
+            val listenAgainColumns = buildListenAgainFeed(recommendationLocalSongs, history)
 
             if (_uiState.value.trendingTracks.isNotEmpty() && !forceRefresh) {
-                updateLocalDerivedData(localSongs, history)
+                updateLocalDerivedData(recommendationLocalSongs, history)
                 _uiState.value = _uiState.value.copy(
                     listenAgainColumns = listenAgainColumns,
                     listenAgainTracks = listenAgainColumns.flatten()
@@ -258,9 +262,9 @@ class HomeTestViewModel @Inject constructor(
             // Immediately populate artists and quick hits from local tracks and cache so UI is instant
             val initialArtists = buildArtistList(localSongs, cachedDiscoveredArtists)
             val initialQuickHits = buildQuickHitsFeed(
-                localSongs = localSongs,
+                localSongs = recommendationLocalSongs,
                 history = history,
-                onlineTracks = cachedQuickHitsOnline,
+                onlineTracks = ExplicitTitleFilter.filterOnline(cachedQuickHitsOnline),
                 deduplicator = null
             )
 
@@ -363,20 +367,20 @@ class HomeTestViewModel @Inject constructor(
             deduplicator.clear()
 
             // Allocate Daily Featured pool first
-            val cleanFeaturedTracks = deduplicator.allocateAll(featuredTracks)
+            val cleanFeaturedTracks = deduplicator.allocateAll(ExplicitTitleFilter.filterOnline(featuredTracks))
             if (featured?.albumName != null) {
                 val albumSongs = localSongs.filter { it.album.equals(featured.albumName, ignoreCase = true) }
                 deduplicator.allocateAllLocal(albumSongs)
             }
 
             // Allocate Trending Songs (guaranteed zero overlap with Daily Featured)
-            var cleanTrending = rawTrendingOnline.filter { deduplicator.allocate(it) }
+            var cleanTrending = ExplicitTitleFilter.filterOnline(rawTrendingOnline).filter { deduplicator.allocate(it) }
             if (cleanTrending.size < 10) {
                 withContext(Dispatchers.IO) {
                     val secondary = try {
                         onlineRepository.search("Billboard Hot 100 2026", AudioSource.YOUTUBE)
                     } catch (_: Exception) { emptyList() }
-                    val cleanSecondary = onlineRepository.trendingFilter.filterSongs(secondary)
+                    val cleanSecondary = ExplicitTitleFilter.filterOnline(onlineRepository.trendingFilter.filterSongs(secondary))
                         .filter { deduplicator.allocate(it) }
                     cleanTrending = (cleanTrending + cleanSecondary).take(20)
                 }
@@ -400,9 +404,9 @@ class HomeTestViewModel @Inject constructor(
             val artistsList = buildArtistList(localSongs, onlineArtistsDiscovered)
 
             // 5. Quick Hits: Interleave clean offline and clean online hits (guaranteed zero overlap with Daily Featured & Trending)
-            val cleanQuickHitsOnline = rawQuickHitsOnline.filter { deduplicator.allocate(it) }
+            val cleanQuickHitsOnline = ExplicitTitleFilter.filterOnline(rawQuickHitsOnline).filter { deduplicator.allocate(it) }
             val quickHitsColumns = buildQuickHitsFeed(
-                localSongs = localSongs,
+                localSongs = recommendationLocalSongs,
                 history = history,
                 onlineTracks = cleanQuickHitsOnline,
                 deduplicator = deduplicator
@@ -714,16 +718,18 @@ class HomeTestViewModel @Inject constructor(
         localSongs: List<Song>
     ): Pair<List<OnlineSong>, List<Song>> = withContext(Dispatchers.IO) {
         val onlineResults = try {
-            onlineRepository.search(category.searchQuery, AudioSource.ALL).take(25)
+            val raw = onlineRepository.search(category.searchQuery, AudioSource.ALL).take(25)
+            ExplicitTitleFilter.filterOnline(raw)
         } catch (_: Exception) {
             emptyList()
         }
 
         val localFiltered = localSongs.filter { song ->
             val queryLower = category.title.lowercase()
-            song.title.contains(queryLower, ignoreCase = true) ||
+            (song.title.contains(queryLower, ignoreCase = true) ||
                     song.artist.contains(queryLower, ignoreCase = true) ||
-                    song.album.contains(queryLower, ignoreCase = true)
+                    song.album.contains(queryLower, ignoreCase = true)) &&
+                    !ExplicitTitleFilter.shouldHideTitle(song.title)
         }.take(25)
 
         Pair(onlineResults, localFiltered)
