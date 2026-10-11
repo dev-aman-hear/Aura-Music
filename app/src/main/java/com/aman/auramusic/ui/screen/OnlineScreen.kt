@@ -5,6 +5,8 @@ import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -13,16 +15,20 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.MusicNote
@@ -38,6 +44,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -48,6 +55,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -69,6 +77,7 @@ import com.aman.auramusic.ui.component.SectionHeader
 import com.aman.auramusic.ui.theme.AuraScreenBackground
 import com.aman.auramusic.ui.theme.AuraShapes
 import com.aman.auramusic.ui.theme.GlassLevel
+import com.aman.auramusic.ui.theme.LocalIsDark
 import com.aman.auramusic.ui.theme.liquidGlass
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.async
@@ -506,8 +515,24 @@ fun OnlineScreen(
     val mutedText = MaterialTheme.colorScheme.onSurfaceVariant
 
     AuraScreenBackground(modifier = modifier) {
+        val isDark = LocalIsDark.current
+        val listState = rememberLazyListState()
+        val statusBarHeight = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+        val effectiveBarHeight = if (statusBarHeight > 0.dp) statusBarHeight else 28.dp
+        val isScrolled by remember {
+            derivedStateOf {
+                listState.firstVisibleItemIndex > 0 || listState.firstVisibleItemScrollOffset > 8
+            }
+        }
+        val scrimAlpha by animateFloatAsState(
+            targetValue = if (isScrolled) 1f else 0f,
+            animationSpec = tween(durationMillis = 220),
+            label = "onlineStatusBarScrimAlpha"
+        )
+
         Box(modifier = Modifier.fillMaxSize()) {
             LazyColumn(
+                state = listState,
                 modifier = Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(bottom = 160.dp),
                 verticalArrangement = Arrangement.spacedBy(4.dp)
@@ -535,13 +560,6 @@ fun OnlineScreen(
                                     fontSize = 13.sp,
                                     modifier = Modifier.padding(top = 3.dp)
                                 )
-                            }
-                            IconButton(onClick = {
-                                if (!isLoading) {
-                                    scope.launch { loadCatalog(forceRefresh = true) }
-                                }
-                            }) {
-                                Icon(Icons.Default.Refresh, contentDescription = "Refresh Explore", tint = textColor)
                             }
                             IconButton(onClick = onOpenSettings) {
                                 Icon(Icons.Default.Settings, contentDescription = "Settings", tint = textColor)
@@ -722,6 +740,29 @@ fun OnlineScreen(
                         )
                     }
                 }
+            }
+
+            // Dynamic Status Bar Scrim (Adaptive white in light mode, dark in dark mode)
+            if (scrimAlpha > 0f) {
+                val scrimColor = if (isDark) {
+                    if (MaterialTheme.colorScheme.background == Color.Black) Color.Black else Color(0xFF131018)
+                } else {
+                    Color.White
+                }
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopCenter)
+                        .fillMaxWidth()
+                        .height(effectiveBarHeight + 16.dp)
+                        .graphicsLayer { alpha = scrimAlpha }
+                        .background(
+                            Brush.verticalGradient(
+                                0.0f to scrimColor.copy(alpha = 0.98f),
+                                0.68f to scrimColor.copy(alpha = 0.88f),
+                                1.0f to Color.Transparent
+                            )
+                        )
+                )
             }
 
             if (selectedCollection != null) {

@@ -755,12 +755,14 @@ private fun String?.decodeSavedOnlineArtists(): List<SavedOnlineArtist> {
                     val srcStr = item.optString("source", AudioSource.YOUTUBE.name)
                     val source = runCatching { AudioSource.valueOf(srcStr) }.getOrDefault(AudioSource.YOUTUBE)
                     val profileImageUrl = item.optString("profileImageUrl").takeIf { it.isNotBlank() }
+                    val audienceText = item.optString("audienceText").takeIf { it.isNotBlank() }
                     add(
                         SavedOnlineArtist(
                             id = id,
                             name = name,
                             profileImageUrl = profileImageUrl,
-                            source = source
+                            source = source,
+                            audienceText = audienceText
                         )
                     )
                 }
@@ -778,6 +780,7 @@ private fun List<SavedOnlineArtist>.encodeSavedOnlineArtists(): String {
                 .put("name", artist.name)
                 .put("profileImageUrl", artist.profileImageUrl.orEmpty())
                 .put("source", artist.source.name)
+                .put("audienceText", artist.audienceText.orEmpty())
         )
     }
     return array.toString()

@@ -1,9 +1,13 @@
 package com.aman.auramusic.ui.screen.hometest
 
 import android.widget.Toast
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -81,11 +85,16 @@ fun HomeTestScreen(
     var artistOnlineSongs by remember { mutableStateOf<List<OnlineSong>>(emptyList()) }
     var artistLocalSongs by remember { mutableStateOf<List<Song>>(emptyList()) }
     var artistOnlineAlbums by remember { mutableStateOf<List<OnlinePlaylist>>(emptyList()) }
+    var artistAudienceText by remember { mutableStateOf<String?>(null) }
     var isArtistLoading by remember { mutableStateOf(false) }
 
     var selectedOnlineAlbum by remember { mutableStateOf<OnlinePlaylist?>(null) }
     var selectedOnlineAlbumSongs by remember { mutableStateOf<List<OnlineSong>>(emptyList()) }
     var isAlbumLoading by remember { mutableStateOf(false) }
+
+    var showAllArtistsSheet by remember { mutableStateOf(false) }
+    var showAllQuickHitsSheet by remember { mutableStateOf(false) }
+    var showAllCategoriesSheet by remember { mutableStateOf(false) }
 
     LaunchedEffect(songs, history) {
         viewModel.loadData(songs, history)
@@ -99,12 +108,16 @@ fun HomeTestScreen(
             artistOnlineSongs = emptyList()
             artistLocalSongs = emptyList()
             artistOnlineAlbums = emptyList()
+            artistAudienceText = null
             selectedOnlineAlbum = null
             selectedOnlineAlbumSongs = emptyList()
             selectedCategory = null
             categoryOnlineSongs = emptyList()
             categoryLocalSongs = emptyList()
             selectedSongOptions = null
+            showAllArtistsSheet = false
+            showAllQuickHitsSheet = false
+            showAllCategoriesSheet = false
         }
     }
 
@@ -176,6 +189,67 @@ fun HomeTestScreen(
         )
     }
 
+    // Full See All Grid of Artists
+    if (showAllArtistsSheet) {
+        AllArtistsSheet(
+            artists = uiState.artists,
+            onArtistClick = { artistItem ->
+                selectedArtist = artistItem
+                coroutineScope.launch {
+                    isArtistLoading = true
+                    val catalogue = viewModel.fetchArtistCatalogue(artistItem, songs)
+                    artistOnlineSongs = catalogue.onlineSongs
+                    artistLocalSongs = catalogue.localSongs
+                    artistOnlineAlbums = catalogue.onlineAlbums
+                    artistAudienceText = catalogue.audienceText
+                    isArtistLoading = false
+                }
+            },
+            onDismiss = { showAllArtistsSheet = false }
+        )
+    }
+
+    // Full See All List of Quick Hits
+    if (showAllQuickHitsSheet) {
+        val allQuickHitTracks = remember(uiState.quickHitsColumns) {
+            uiState.quickHitsColumns.flatten()
+        }
+        val allOnlineQuickHits = remember(allQuickHitTracks) {
+            allQuickHitTracks.mapNotNull { (it as? QuickHitTrack.OnlineTrack)?.onlineSong }
+        }
+        AllQuickHitsSheet(
+            tracks = allQuickHitTracks,
+            currentSongId = currentSongId,
+            isPlaying = isPlaying,
+            onTrackClick = { track ->
+                when (track) {
+                    is QuickHitTrack.LocalTrack -> onSongSelected(track.song, songs)
+                    is QuickHitTrack.OnlineTrack -> onOnlineSongSelected(track.onlineSong, allOnlineQuickHits)
+                }
+            },
+            onOptionsClick = { song -> selectedSongOptions = song },
+            onDismiss = { showAllQuickHitsSheet = false }
+        )
+    }
+
+    // Full See All Grid of Categories
+    if (showAllCategoriesSheet) {
+        AllCategoriesSheet(
+            categories = uiState.categories,
+            onCategoryClick = { category ->
+                selectedCategory = category
+                coroutineScope.launch {
+                    isCategoryLoading = true
+                    val (onlineRes, localRes) = viewModel.fetchCategorySongs(category, songs)
+                    categoryOnlineSongs = onlineRes
+                    categoryLocalSongs = localRes
+                    isCategoryLoading = false
+                }
+            },
+            onDismiss = { showAllCategoriesSheet = false }
+        )
+    }
+
     // Song Options Menu
     if (selectedSongOptions != null) {
         SongOptionsDialog(
@@ -220,10 +294,26 @@ fun HomeTestScreen(
                 }
             }
         } else {
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(bottom = 160.dp)
-            ) {
+            val listState = rememberLazyListState()
+            val statusBarHeight = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+            val effectiveBarHeight = if (statusBarHeight > 0.dp) statusBarHeight else 28.dp
+            val isScrolled by remember {
+                derivedStateOf {
+                    listState.firstVisibleItemIndex > 0 || listState.firstVisibleItemScrollOffset > 8
+                }
+            }
+            val scrimAlpha by animateFloatAsState(
+                targetValue = if (isScrolled) 1f else 0f,
+                animationSpec = tween(durationMillis = 220),
+                label = "homeStatusBarScrimAlpha"
+            )
+
+            Box(modifier = Modifier.fillMaxSize()) {
+                LazyColumn(
+                    state = listState,
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(bottom = 160.dp)
+                ) {
                 // 1. Top Header
                 item(key = "hometest_header") {
                     HomeTestHeader(
@@ -327,9 +417,11 @@ fun HomeTestScreen(
                                     artistOnlineSongs = catalogue.onlineSongs
                                     artistLocalSongs = catalogue.localSongs
                                     artistOnlineAlbums = catalogue.onlineAlbums
+                                    artistAudienceText = catalogue.audienceText
                                     isArtistLoading = false
                                 }
-                            }
+                            },
+                            onSeeAllClick = { showAllArtistsSheet = true }
                         )
                     }
                 }
@@ -350,7 +442,8 @@ fun HomeTestScreen(
                                     is QuickHitTrack.OnlineTrack -> onOnlineSongSelected(track.onlineSong, allOnlineQuickHits)
                                 }
                             },
-                            onOptionsClick = { song -> selectedSongOptions = song }
+                            onOptionsClick = { song -> selectedSongOptions = song },
+                            onSeeAllClick = { showAllQuickHitsSheet = true }
                         )
                     }
                 }
@@ -369,12 +462,37 @@ fun HomeTestScreen(
                                     categoryLocalSongs = localRes
                                     isCategoryLoading = false
                                 }
-                            }
+                            },
+                            onSeeAllClick = { showAllCategoriesSheet = true }
                         )
                     }
                 }
             }
+
+            // Dynamic Status Bar Scrim (Adaptive white in light mode, dark in dark mode)
+            if (scrimAlpha > 0f) {
+                val scrimColor = if (isDark) {
+                    if (MaterialTheme.colorScheme.background == Color.Black) Color.Black else Color(0xFF0F0E13)
+                } else {
+                    Color.White
+                }
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopCenter)
+                        .fillMaxWidth()
+                        .height(effectiveBarHeight + 16.dp)
+                        .graphicsLayer { alpha = scrimAlpha }
+                        .background(
+                            Brush.verticalGradient(
+                                0.0f to scrimColor.copy(alpha = 0.98f),
+                                0.68f to scrimColor.copy(alpha = 0.88f),
+                                1.0f to Color.Transparent
+                            )
+                        )
+                )
+            }
         }
+    }
 
         // Keep artist and online-release details inside the app content layer rather than a Dialog.
         // This lets the global mini-player and bottom navigation remain visible above the page.
@@ -415,6 +533,7 @@ fun HomeTestScreen(
                 onlineAlbums = artistOnlineAlbums,
                 isLoading = isArtistLoading,
                 isSavedInLibrary = isArtistSaved,
+                audienceText = artistAudienceText,
                 onToggleSaveToLibrary = {
                     if (isArtistSaved) {
                         savedArtistEntry?.let { onRemoveSavedOnlineArtist?.invoke(it.id) }

@@ -659,11 +659,14 @@ fun MusicScreen(musicViewModel: MusicViewModel) {
                                 onAddToQueue = { playerViewModel.addToQueue(it) },
                                 onAddCollectionToQueue = { playerViewModel.addToQueue(albumSongs) },
                                 onAddCollectionToPlaylist = { songsToAddToPlaylist = albumSongs },
-                                onFavoriteCollection = { albumSongs.forEach { musicViewModel.toggleFavorite(it.id, true) } }
+                                onFavoriteCollection = { albumSongs.forEach { musicViewModel.toggleFavorite(it.id, true) } },
+                                showShareButton = false
                             )
                         }
                         selectedArtistName != null -> {
-                            val artistSongs = songs.filter { it.artist == selectedArtistName }
+                            val artistSongs = songs.filter { 
+                                com.aman.auramusic.util.ArtistHelper.songHasArtist(it, selectedArtistName!!) 
+                            }
                             CollectionDetailScreen(
                                 title = selectedArtistName!!,
                                 subtitle = "${artistSongs.size} songs",

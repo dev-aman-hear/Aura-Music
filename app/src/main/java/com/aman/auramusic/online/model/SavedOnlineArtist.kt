@@ -8,5 +8,6 @@ data class SavedOnlineArtist(
     val id: String,
     val name: String,
     val profileImageUrl: String? = null,
-    val source: AudioSource = AudioSource.YOUTUBE
+    val source: AudioSource = AudioSource.YOUTUBE,
+    val audienceText: String? = null
 )
