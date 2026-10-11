@@ -867,12 +867,25 @@ fun ArtistDetailSheet(
                                 border = BorderStroke(1.dp, Color.White.copy(alpha = 0.36f)),
                                 modifier = Modifier
                                     .size(44.dp)
-                                    .frostedGlass(
-                                        shape = CircleShape,
-                                        isDark = isDark,
-                                        elevation = 6.dp,
-                                        borderWidth = 1.dp,
-                                        sheenAlpha = 0.38f
+                                    .background(
+                                        Brush.verticalGradient(
+                                            listOf(
+                                                Color.White.copy(alpha = 0.22f),
+                                                Color.White.copy(alpha = 0.08f),
+                                                Color.Black.copy(alpha = 0.24f)
+                                            )
+                                        ),
+                                        CircleShape
+                                    )
+                                    .border(
+                                        width = 1.dp,
+                                        brush = Brush.verticalGradient(
+                                            listOf(
+                                                Color.White.copy(alpha = 0.68f),
+                                                Color.White.copy(alpha = 0.22f)
+                                            )
+                                        ),
+                                        shape = CircleShape
                                     )
                             ) {
                                 IconButton(onClick = onDismiss) {
@@ -953,15 +966,17 @@ fun ArtistDetailSheet(
                                     overflow = TextOverflow.Ellipsis
                                 )
                                 Spacer(modifier = Modifier.height(5.dp))
-                                Text(
-                                    text = when {
-                                        artist.songCountText.isNotBlank() && artist.isOnline -> artist.songCountText
-                                        totalTracks > 0 -> "$totalTracks tracks available"
-                                        else -> "Artist"
-                                    },
-                                    color = Color.White.copy(alpha = 0.78f),
-                                    fontSize = 12.sp
-                                )
+                                // Do not show a misleading local-track count here.
+                                // Online profiles may display provider-supplied audience metadata.
+                                if (artist.isOnline && artist.songCountText.isNotBlank() &&
+                                    !artist.songCountText.equals("YouTube Music", ignoreCase = true)
+                                ) {
+                                    Text(
+                                        text = artist.songCountText,
+                                        color = Color.White.copy(alpha = 0.78f),
+                                        fontSize = 12.sp
+                                    )
+                                }
                             }
                             Surface(
                                 onClick = onPlayAll,
@@ -1559,7 +1574,7 @@ fun CategoryDetailSheet(
                 ) {
                     if (onlineSongs.isNotEmpty()) {
                         onlineSongs.take(8).forEach { oSong ->
-                            val track = QuickHitTrack.OnlineTrack(oSong, "Category Hit")
+                            val track = QuickHitTrack.OnlineTrack(oSong, "${category.title} Hit")
                             QuickHitTrackItem(
                                 track = track,
                                 isActive = false,
