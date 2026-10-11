@@ -573,17 +573,26 @@ class HomeTestViewModel @Inject constructor(
         localSongs: List<Song>,
         discoveredOnline: List<com.aman.auramusic.online.network.repository.YouTubeArtist>
     ): List<ArtistItem> {
-        // 1. Process local songs into individual single artists
-        val localArtistMap = mutableMapOf<String, MutableList<Song>>()
+        // 1. Split every local song's artist credit into individual artist names.
+        // Group case-insensitively so capitalization/spacing variants do not create
+        // duplicate cards, while retaining the first readable display name.
+        val localArtistMap = linkedMapOf<String, Pair<String, MutableList<Song>>>()
+        fun localArtistKey(value: String): String =
+            value.trim().replace(Regex("\\s+"), " ").lowercase(java.util.Locale.ROOT)
+
         localSongs.forEach { song ->
-            val singleNames = extractSingleArtistNames(song.artist)
-            singleNames.forEach { name ->
-                localArtistMap.getOrPut(name) { mutableListOf() }.add(song)
+            extractSingleArtistNames(song.artist).forEach { rawName ->
+                val artistName = rawName.trim().replace(Regex("\\s+"), " ")
+                val key = localArtistKey(artistName)
+                if (key.isNotBlank()) {
+                    val entry = localArtistMap.getOrPut(key) { artistName to mutableListOf() }
+                    if (entry.second.none { it.id == song.id }) entry.second.add(song)
+                }
             }
         }
 
-        val localArtists = localArtistMap.entries
-            .sortedByDescending { it.value.size }
+        val localArtists = localArtistMap.values
+            .sortedByDescending { it.second.size }
             .map { (artistName, songList) ->
                 val cached = localArtistMetadataCache[normalizeArtistComparable(artistName)]
                 val onlineMatch = discoveredOnline.firstOrNull {
@@ -881,9 +890,10 @@ class HomeTestViewModel @Inject constructor(
         localSongs: List<Song>
     ): ArtistProfileData = withContext(Dispatchers.IO) {
         val artistName = artist.name.trim()
+        val selectedArtistKey = artistName.trim().replace(Regex("\\s+"), " ").lowercase(java.util.Locale.ROOT)
         val localFiltered = localSongs.filter { song ->
-            extractSingleArtistNames(song.artist).any {
-                it.equals(artistName, ignoreCase = true)
+            extractSingleArtistNames(song.artist).any { creditedArtist ->
+                creditedArtist.trim().replace(Regex("\\s+"), " ").lowercase(java.util.Locale.ROOT) == selectedArtistKey
             }
         }.distinctBy { it.id }
 
