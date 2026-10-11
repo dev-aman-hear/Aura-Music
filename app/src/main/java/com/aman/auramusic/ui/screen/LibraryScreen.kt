@@ -40,6 +40,7 @@ import com.aman.auramusic.online.model.AudioSource
 import com.aman.auramusic.online.model.OnlinePlaylist
 import com.aman.auramusic.online.model.OnlineSong
 import com.aman.auramusic.online.network.repository.OnlineMusicRepository
+import com.aman.auramusic.online.network.repository.YouTubeArtistRepositoryImpl
 import com.aman.auramusic.online.player.OnlinePlaybackManager
 import com.aman.auramusic.ui.component.*
 import com.aman.auramusic.ui.theme.*
@@ -74,6 +75,10 @@ fun LibraryScreen(
     onArtistSelected: (String) -> Unit,
     onlinePlaybackManager: OnlinePlaybackManager? = null,
     onOnlineSongSelected: (OnlineSong, List<OnlineSong>) -> Unit = { _, _ -> },
+    savedOnlinePlaylists: List<OnlinePlaylist> = emptyList(),
+    onSaveOnlinePlaylist: ((OnlinePlaylist) -> Unit)? = null,
+    onRemoveSavedOnlinePlaylist: ((String) -> Unit)? = null,
+    onAddOnlineSongToPlaylist: ((OnlineSong) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -155,10 +160,21 @@ fun LibraryScreen(
         BackHandler {
             selectedOnlinePlaylist = null
         }
+        val isSaved = savedOnlinePlaylists.any { it.id == selectedOnlinePlaylist!!.id }
         OnlinePlaylistDetailScreen(
             playlist = selectedOnlinePlaylist!!,
             songs = playlistDetailSongs,
             isLoading = isPlaylistDetailLoading,
+            isSavedInLibrary = isSaved,
+            onToggleSaveToLibrary = {
+                val cur = selectedOnlinePlaylist ?: return@OnlinePlaylistDetailScreen
+                if (isSaved) {
+                    onRemoveSavedOnlinePlaylist?.invoke(cur.id)
+                } else {
+                    onSaveOnlinePlaylist?.invoke(cur)
+                }
+            },
+            onAddOnlineSongToPlaylist = onAddOnlineSongToPlaylist,
             onBack = { selectedOnlinePlaylist = null },
             onSongSelected = { song, queue ->
                 onOnlineSongSelected(song, queue)
@@ -495,11 +511,11 @@ fun LibraryScreen(
                             verticalArrangement = Arrangement.spacedBy(16.dp)
                         ) {
                             items(albumsList, key = { it.key }) { (albumName, albumSongs) ->
-                                val representativeSong = albumSongs.firstOrNull()
+                                val representativeSong = albumSongs.firstOrNull { !it.artworkUri.isNullOrBlank() } ?: albumSongs.firstOrNull()
                                 AlbumCard(
                                     title = albumName,
                                     subtitle = representativeSong?.artist ?: "Unknown Artist",
-                                    artworkModel = representativeSong,
+                                    artworkModel = representativeSong?.artworkUri,
                                     size = 150.dp,
                                     onClick = { onAlbumSelected(albumName) }
                                 )
@@ -525,11 +541,11 @@ fun LibraryScreen(
                             verticalArrangement = Arrangement.spacedBy(20.dp)
                         ) {
                             items(artistsList, key = { it.key }) { (artistName, artistSongs) ->
-                                val representativeSong = artistSongs.firstOrNull()
+                                val cachedArtist = YouTubeArtistRepositoryImpl.getCachedArtist(artistName)
                                 ArtistCard(
                                     name = artistName,
                                     songCountText = "${artistSongs.size} songs",
-                                    artworkModel = representativeSong,
+                                    artworkModel = cachedArtist?.profileImageUrl,
                                     size = 110.dp,
                                     onClick = { onArtistSelected(artistName) }
                                 )
@@ -587,10 +603,12 @@ fun LibraryScreen(
                                 ) {
                                     items(filteredPlaylists, key = { "pl_${it.id}" }) { playlist ->
                                         val firstSong = playlist.songIds.firstOrNull()?.let { songById[it] }
+                                        val artworkModel = firstSong?.artworkUri
+                                            ?: playlist.onlineSongs.firstOrNull()?.artworkUrl?.ifBlank { null }
                                         PlaylistCard(
                                             title = playlist.name,
-                                            songCountText = "${playlist.songIds.size} songs",
-                                            artworkModel = firstSong,
+                                            songCountText = "${playlist.songIds.size + playlist.onlineSongs.size} songs",
+                                            artworkModel = artworkModel,
                                             onClick = { onPlaylistSelected(playlist) }
                                         )
                                     }
@@ -635,11 +653,37 @@ fun LibraryScreen(
                             }
                         }
 
+                        // Saved Online Playlists Section
+                        if (savedOnlinePlaylists.isNotEmpty()) {
+                            item {
+                                SectionHeader(
+                                    title = "Saved Online Playlists",
+                                    modifier = Modifier.padding(bottom = 6.dp)
+                                )
+                            }
+                            item {
+                                LazyRow(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    contentPadding = PaddingValues(horizontal = 20.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(14.dp)
+                                ) {
+                                    items(savedOnlinePlaylists, key = { "saved_online_${it.id}" }) { playlist ->
+                                        PlaylistCard(
+                                            title = playlist.title,
+                                            songCountText = "${playlist.source.badgeText} • ${playlist.songCount} songs",
+                                            artworkModel = playlist.artworkUrl,
+                                            onClick = { selectedOnlinePlaylist = playlist }
+                                        )
+                                    }
+                                }
+                                Spacer(modifier = Modifier.height(20.dp))
+                            }
+                        }
+
                         // Curated Online Playlists Header
                         item {
                             SectionHeader(
                                 title = "Curated Online Playlists",
-                                eyebrow = "Stream & Discover",
                                 modifier = Modifier.padding(bottom = 6.dp)
                             )
                         }
@@ -711,12 +755,21 @@ fun LibraryScreen(
                             }
                         } else if (isOnlineFeedLoading) {
                             item {
-                                AuraLoadingState(
-                                    message = "Fetching online playlists...",
+                                Row(
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .padding(vertical = 32.dp)
-                                )
+                                        .padding(horizontal = 20.dp, vertical = 8.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(14.dp)
+                                ) {
+                                    repeat(3) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(148.dp)
+                                                .clip(RoundedCornerShape(18.dp))
+                                                .background(cardBg)
+                                        )
+                                    }
+                                }
                             }
                         }
                     }
