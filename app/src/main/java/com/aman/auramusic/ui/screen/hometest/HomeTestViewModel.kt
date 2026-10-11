@@ -573,17 +573,26 @@ class HomeTestViewModel @Inject constructor(
         localSongs: List<Song>,
         discoveredOnline: List<com.aman.auramusic.online.network.repository.YouTubeArtist>
     ): List<ArtistItem> {
-        // 1. Process local songs into individual single artists
-        val localArtistMap = mutableMapOf<String, MutableList<Song>>()
+        // 1. Split every local song's artist credit into individual artist names.
+        // Group case-insensitively so capitalization/spacing variants do not create
+        // duplicate cards, while retaining the first readable display name.
+        val localArtistMap = linkedMapOf<String, Pair<String, MutableList<Song>>>()
+        fun localArtistKey(value: String): String =
+            value.trim().replace(Regex("\\s+"), " ").lowercase(java.util.Locale.ROOT)
+
         localSongs.forEach { song ->
-            val singleNames = extractSingleArtistNames(song.artist)
-            singleNames.forEach { name ->
-                localArtistMap.getOrPut(name) { mutableListOf() }.add(song)
+            extractSingleArtistNames(song.artist).forEach { rawName ->
+                val artistName = rawName.trim().replace(Regex("\\s+"), " ")
+                val key = localArtistKey(artistName)
+                if (key.isNotBlank()) {
+                    val entry = localArtistMap.getOrPut(key) { artistName to mutableListOf() }
+                    if (entry.second.none { it.id == song.id }) entry.second.add(song)
+                }
             }
         }
 
-        val localArtists = localArtistMap.entries
-            .sortedByDescending { it.value.size }
+        val localArtists = localArtistMap.values
+            .sortedByDescending { it.second.size }
             .map { (artistName, songList) ->
                 val cached = localArtistMetadataCache[normalizeArtistComparable(artistName)]
                 val onlineMatch = discoveredOnline.firstOrNull {
@@ -771,20 +780,40 @@ class HomeTestViewModel @Inject constructor(
         category: CategoryDiscoverItem,
         localSongs: List<Song>
     ): Pair<List<OnlineSong>, List<Song>> = withContext(Dispatchers.IO) {
+        // Search with the category's own query and preserve source identity/order.
         val onlineResults = try {
-            val raw = onlineRepository.search(category.searchQuery, AudioSource.ALL).take(25)
+            val raw = onlineRepository.search(category.searchQuery, AudioSource.ALL)
             ExplicitTitleFilter.filterOnline(raw)
+                .distinctBy { "${it.source.name}:${it.id}" }
+                .take(40)
         } catch (_: Exception) {
             emptyList()
         }
 
-        val localFiltered = localSongs.filter { song ->
-            val queryLower = category.title.lowercase()
-            (song.title.contains(queryLower, ignoreCase = true) ||
-                    song.artist.contains(queryLower, ignoreCase = true) ||
-                    song.album.contains(queryLower, ignoreCase = true)) &&
-                    !ExplicitTitleFilter.shouldHideTitle(song.title)
-        }.take(25)
+        // Local genre is inferred conservatively from metadata keywords. Do not label
+        // unrelated local songs as category hits just to fill the list.
+        val keywords = when (category.id.lowercase()) {
+            "pop" -> listOf("pop", "chart", "dance", "radio", "singer", "love", "weeknd", "swift", "bieber", "lipa", "ariana")
+            "hiphop" -> listOf("hip hop", "hip-hop", "rap", "hiphop", "trap", "drill", "snoop", "eminem", "drake", "kendrick", "tupac", "50 cent")
+            "electronic" -> listOf("electronic", "edm", "dance", "house", "techno", "trance", "bass", "dj", "remix")
+            "rock" -> listOf("rock", "metal", "punk", "alternative", "grunge", "guitar", "indie rock")
+            "rnb" -> listOf("r&b", "rnb", "soul", "neo soul", "rhythm and blues", "usher", "rihanna", "beyonce")
+            "chill" -> listOf("lofi", "lo-fi", "chill", "ambient", "relax", "sleep", "acoustic", "instrumental")
+            "happy" -> listOf("happy", "upbeat", "party", "summer", "feel good", "dance", "celebration")
+            "sad" -> listOf("sad", "melancholy", "heartbreak", "acoustic", "lonely", "pain", "cry", "emotional")
+            "desi" -> listOf("bollywood", "hindi", "punjabi", "desi", "indian", "filmi", "t-series", "zee music")
+            "indie" -> listOf("indie", "independent", "folk", "singer-songwriter", "alternative", "acoustic")
+            else -> listOf(category.title.lowercase())
+        }
+        val localFiltered = localSongs.asSequence()
+            .filterNot { ExplicitTitleFilter.shouldHideTitle(it.title) }
+            .filter { song ->
+                val metadata = "${song.title} ${song.artist} ${song.album}".lowercase()
+                keywords.any { keyword -> metadata.contains(keyword) }
+            }
+            .distinctBy { it.id }
+            .take(40)
+            .toList()
 
         Pair(onlineResults, localFiltered)
     }
@@ -861,9 +890,10 @@ class HomeTestViewModel @Inject constructor(
         localSongs: List<Song>
     ): ArtistProfileData = withContext(Dispatchers.IO) {
         val artistName = artist.name.trim()
+        val selectedArtistKey = artistName.trim().replace(Regex("\\s+"), " ").lowercase(java.util.Locale.ROOT)
         val localFiltered = localSongs.filter { song ->
-            extractSingleArtistNames(song.artist).any {
-                it.equals(artistName, ignoreCase = true)
+            extractSingleArtistNames(song.artist).any { creditedArtist ->
+                creditedArtist.trim().replace(Regex("\\s+"), " ").lowercase(java.util.Locale.ROOT) == selectedArtistKey
             }
         }.distinctBy { it.id }
 
