@@ -771,20 +771,40 @@ class HomeTestViewModel @Inject constructor(
         category: CategoryDiscoverItem,
         localSongs: List<Song>
     ): Pair<List<OnlineSong>, List<Song>> = withContext(Dispatchers.IO) {
+        // Search with the category's own query and preserve source identity/order.
         val onlineResults = try {
-            val raw = onlineRepository.search(category.searchQuery, AudioSource.ALL).take(25)
+            val raw = onlineRepository.search(category.searchQuery, AudioSource.ALL)
             ExplicitTitleFilter.filterOnline(raw)
+                .distinctBy { "${it.source.name}:${it.id}" }
+                .take(40)
         } catch (_: Exception) {
             emptyList()
         }
 
-        val localFiltered = localSongs.filter { song ->
-            val queryLower = category.title.lowercase()
-            (song.title.contains(queryLower, ignoreCase = true) ||
-                    song.artist.contains(queryLower, ignoreCase = true) ||
-                    song.album.contains(queryLower, ignoreCase = true)) &&
-                    !ExplicitTitleFilter.shouldHideTitle(song.title)
-        }.take(25)
+        // Local genre is inferred conservatively from metadata keywords. Do not label
+        // unrelated local songs as category hits just to fill the list.
+        val keywords = when (category.id.lowercase()) {
+            "pop" -> listOf("pop", "chart", "dance", "radio", "singer", "love", "weeknd", "swift", "bieber", "lipa", "ariana")
+            "hiphop" -> listOf("hip hop", "hip-hop", "rap", "hiphop", "trap", "drill", "snoop", "eminem", "drake", "kendrick", "tupac", "50 cent")
+            "electronic" -> listOf("electronic", "edm", "dance", "house", "techno", "trance", "bass", "dj", "remix")
+            "rock" -> listOf("rock", "metal", "punk", "alternative", "grunge", "guitar", "indie rock")
+            "rnb" -> listOf("r&b", "rnb", "soul", "neo soul", "rhythm and blues", "usher", "rihanna", "beyonce")
+            "chill" -> listOf("lofi", "lo-fi", "chill", "ambient", "relax", "sleep", "acoustic", "instrumental")
+            "happy" -> listOf("happy", "upbeat", "party", "summer", "feel good", "dance", "celebration")
+            "sad" -> listOf("sad", "melancholy", "heartbreak", "acoustic", "lonely", "pain", "cry", "emotional")
+            "desi" -> listOf("bollywood", "hindi", "punjabi", "desi", "indian", "filmi", "t-series", "zee music")
+            "indie" -> listOf("indie", "independent", "folk", "singer-songwriter", "alternative", "acoustic")
+            else -> listOf(category.title.lowercase())
+        }
+        val localFiltered = localSongs.asSequence()
+            .filterNot { ExplicitTitleFilter.shouldHideTitle(it.title) }
+            .filter { song ->
+                val metadata = "${song.title} ${song.artist} ${song.album}".lowercase()
+                keywords.any { keyword -> metadata.contains(keyword) }
+            }
+            .distinctBy { it.id }
+            .take(40)
+            .toList()
 
         Pair(onlineResults, localFiltered)
     }
