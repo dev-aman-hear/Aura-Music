@@ -91,9 +91,7 @@ enum class SearchFilter(val label: String) {
     ALL("All"),
     SONGS("Songs"),
     ARTISTS("Artists"),
-    ALBUMS("Albums"),
-    ONLINE("Online"),
-    LOCAL("Local")
+    ALBUMS("Albums")
 }
 
 private const val SEARCH_PREFS_NAME = "auramusic_search_history"
@@ -290,20 +288,63 @@ fun SearchScreen(
         }
     }
 
-    val matchedAlbums = remember(songs, query) {
+    val matchedAlbums = remember(songs, onlineResults, query) {
         if (query.isBlank()) emptyList()
-        else songs.map { it.album }.distinct().filter { it.contains(query.trim(), ignoreCase = true) }
+        else {
+            val q = query.trim().lowercase()
+            val localAlbums = songs.map { it.album }
+                .distinct()
+                .filter { it.isNotBlank() && it.lowercase().contains(q) }
+            val onlineAlbums = onlineResults.map { it.album }
+                .distinct()
+                .filter { it.isNotBlank() && (it.lowercase().contains(q) || q.contains(it.lowercase())) }
+            (localAlbums + onlineAlbums).distinct()
+        }
     }
 
-    val matchedArtists = remember(songs, query) {
+    val matchedArtists = remember(songs, onlineResults, query) {
         if (query.isBlank()) emptyList()
-        else songs.map { it.artist }.distinct().filter { it.contains(query.trim(), ignoreCase = true) }
+        else {
+            val q = query.trim().lowercase()
+            val localArtists = songs.map { it.artist }
+                .distinct()
+                .filter { it.isNotBlank() && it.lowercase().contains(q) }
+            val onlineArtists = onlineResults.map { it.artist }
+                .distinct()
+                .filter { it.isNotBlank() && (it.lowercase().contains(q) || q.contains(it.lowercase())) }
+            val merged = (localArtists + onlineArtists).distinct().toMutableList()
+            if (merged.none { it.equals(query.trim(), ignoreCase = true) } && onlineResults.isNotEmpty()) {
+                val matchingArtist = onlineResults.firstOrNull { it.artist.contains(query.trim(), ignoreCase = true) || query.trim().contains(it.artist, ignoreCase = true) }?.artist
+                if (matchingArtist != null && !merged.contains(matchingArtist)) {
+                    merged.add(0, matchingArtist)
+                }
+            }
+            merged
+        }
     }
 
     // Standout Top Match Candidate (Artist or Song)
     val topArtistMatch = remember(matchedArtists, query) {
         if (query.isBlank()) null
         else matchedArtists.firstOrNull { it.equals(query.trim(), ignoreCase = true) } ?: matchedArtists.firstOrNull()
+    }
+
+    // Songs matching the searched artist or album
+    val artistLocalSongs = remember(filteredLocalSongs, query) {
+        if (query.isBlank()) emptyList()
+        else filteredLocalSongs.filter { it.artist.contains(query.trim(), ignoreCase = true) || query.trim().contains(it.artist, ignoreCase = true) }
+    }
+    val artistOnlineSongs = remember(onlineResults, query) {
+        if (query.isBlank()) emptyList()
+        else onlineResults.filter { it.artist.contains(query.trim(), ignoreCase = true) || query.trim().contains(it.artist, ignoreCase = true) }
+    }
+    val albumLocalSongs = remember(filteredLocalSongs, query) {
+        if (query.isBlank()) emptyList()
+        else filteredLocalSongs.filter { it.album.contains(query.trim(), ignoreCase = true) || query.trim().contains(it.album, ignoreCase = true) }
+    }
+    val albumOnlineSongs = remember(onlineResults, query) {
+        if (query.isBlank()) emptyList()
+        else onlineResults.filter { it.album.contains(query.trim(), ignoreCase = true) || query.trim().contains(it.album, ignoreCase = true) }
     }
 
     // Debounced Online Search (YouTube + JioSaavn)
@@ -655,11 +696,14 @@ fun SearchScreen(
                 if (activeFilter == SearchFilter.ALL || activeFilter == SearchFilter.ARTISTS) {
                     if (topArtistMatch != null) {
                         item {
-                            val artistSongs = songs.filter { it.artist == topArtistMatch }
+                            val artSongs = songs.filter { it.artist.contains(topArtistMatch, ignoreCase = true) }
+                            val artOnline = onlineResults.filter { it.artist.contains(topArtistMatch, ignoreCase = true) }
+                            val artwork = artSongs.firstOrNull() ?: artOnline.firstOrNull()?.artworkUrl
+                            val totalCount = artSongs.size + artOnline.size
                             TopArtistResultCard(
                                 artistName = topArtistMatch,
-                                songCount = artistSongs.size,
-                                artworkModel = artistSongs.firstOrNull(),
+                                songCount = totalCount,
+                                artworkModel = artwork,
                                 onClick = { onArtistSelected(topArtistMatch) }
                             )
                         }
@@ -667,7 +711,7 @@ fun SearchScreen(
                 }
 
                 // 2. LOCAL SONGS
-                if (activeFilter in listOf(SearchFilter.ALL, SearchFilter.SONGS, SearchFilter.LOCAL)) {
+                if (activeFilter in listOf(SearchFilter.ALL, SearchFilter.SONGS)) {
                     if (filteredLocalSongs.isNotEmpty()) {
                         item {
                             Spacer(modifier = Modifier.height(10.dp))
@@ -693,7 +737,7 @@ fun SearchScreen(
                 }
 
                 // 3. ONLINE STREAMING SONGS (YouTube + JioSaavn)
-                if (activeFilter in listOf(SearchFilter.ALL, SearchFilter.SONGS, SearchFilter.ONLINE)) {
+                if (activeFilter in listOf(SearchFilter.ALL, SearchFilter.SONGS)) {
                     if (onlineResults.isNotEmpty()) {
                         item {
                             Spacer(modifier = Modifier.height(10.dp))
@@ -728,14 +772,58 @@ fun SearchScreen(
                         }
 
                         items(matchedArtists, key = { "artist_$it" }) { artistName ->
-                            val artistSongs = songs.filter { it.artist == artistName }
+                            val artSongs = songs.filter { it.artist.contains(artistName, ignoreCase = true) }
+                            val artOnline = onlineResults.filter { it.artist.contains(artistName, ignoreCase = true) }
+                            val artwork = artSongs.firstOrNull() ?: artOnline.firstOrNull()?.artworkUrl
+                            val subtitle = if (artSongs.isNotEmpty() && artOnline.isNotEmpty()) {
+                                "Artist • ${artSongs.size} in library, ${artOnline.size} online"
+                            } else if (artSongs.isNotEmpty()) {
+                                "Artist • ${artSongs.size} songs in library"
+                            } else {
+                                "Artist • ${artOnline.size} tracks online"
+                            }
                             SearchMediaRow(
                                 title = artistName,
-                                subtitle = "Artist • ${artistSongs.size} songs in library",
-                                artworkModel = artistSongs.firstOrNull(),
+                                subtitle = subtitle,
+                                artworkModel = artwork,
                                 isCircular = true,
                                 onClick = { onArtistSelected(artistName) }
                             )
+                        }
+                    }
+
+                    // When filter is specifically ARTISTS, also display the artist tracks below
+                    if (activeFilter == SearchFilter.ARTISTS) {
+                        if (artistLocalSongs.isNotEmpty() || artistOnlineSongs.isNotEmpty()) {
+                            item {
+                                Spacer(modifier = Modifier.height(14.dp))
+                                SectionHeader(
+                                    title = "Artist Tracks",
+                                    eyebrow = "${artistLocalSongs.size + artistOnlineSongs.size} tracks found"
+                                )
+                            }
+                            items(artistLocalSongs, key = { "art_local_${it.id}" }) { song ->
+                                SongRow(
+                                    song = song,
+                                    isPlaying = song.id == currentSongId,
+                                    isFavorite = song.id in favoriteIds,
+                                    onPlayNow = { onSongSelected(song, artistLocalSongs) },
+                                    onToggleFavorite = { onFavoriteToggle(song) },
+                                    onAddToPlaylist = { onAddToPlaylist(song) },
+                                    onAddToQueue = { onAddToQueue(song) },
+                                    onClick = { onSongSelected(song, artistLocalSongs) }
+                                )
+                            }
+                            items(artistOnlineSongs, key = { "art_online_${it.id}" }) { onlineSong ->
+                                val currentPlayingId = onlinePlaybackState?.value?.currentSong?.id
+                                val isPlaying = currentPlayingId == onlineSong.id && (onlinePlaybackState?.value?.isPlaying == true)
+                                SongRow(
+                                    onlineSong = onlineSong,
+                                    isPlaying = isPlaying,
+                                    onClick = { onOnlineSongSelected(onlineSong, artistOnlineSongs) },
+                                    onPlayNow = { onOnlineSongSelected(onlineSong, artistOnlineSongs) }
+                                )
+                            }
                         }
                     }
                 }
@@ -752,24 +840,82 @@ fun SearchScreen(
                         }
 
                         items(matchedAlbums, key = { "album_$it" }) { albumName ->
-                            val albumSongs = songs.filter { it.album == albumName }
+                            val albSongs = songs.filter { it.album.contains(albumName, ignoreCase = true) }
+                            val albOnline = onlineResults.filter { it.album.contains(albumName, ignoreCase = true) }
+                            val artwork = albSongs.firstOrNull() ?: albOnline.firstOrNull()?.artworkUrl
+                            val artistName = albSongs.firstOrNull()?.artist ?: albOnline.firstOrNull()?.artist ?: "Various Artists"
+                            val subtitle = "Album • $artistName"
                             SearchMediaRow(
                                 title = albumName,
-                                subtitle = "Album • ${albumSongs.firstOrNull()?.artist ?: "Unknown Artist"}",
-                                artworkModel = albumSongs.firstOrNull(),
+                                subtitle = subtitle,
+                                artworkModel = artwork,
                                 isCircular = false,
                                 onClick = { onAlbumSelected(albumName) }
                             )
                         }
                     }
+
+                    // When filter is specifically ALBUMS, also display the album tracks below
+                    if (activeFilter == SearchFilter.ALBUMS) {
+                        if (albumLocalSongs.isNotEmpty() || albumOnlineSongs.isNotEmpty()) {
+                            item {
+                                Spacer(modifier = Modifier.height(14.dp))
+                                SectionHeader(
+                                    title = "Album Tracks",
+                                    eyebrow = "${albumLocalSongs.size + albumOnlineSongs.size} tracks found"
+                                )
+                            }
+                            items(albumLocalSongs, key = { "alb_local_${it.id}" }) { song ->
+                                SongRow(
+                                    song = song,
+                                    isPlaying = song.id == currentSongId,
+                                    isFavorite = song.id in favoriteIds,
+                                    onPlayNow = { onSongSelected(song, albumLocalSongs) },
+                                    onToggleFavorite = { onFavoriteToggle(song) },
+                                    onAddToPlaylist = { onAddToPlaylist(song) },
+                                    onAddToQueue = { onAddToQueue(song) },
+                                    onClick = { onSongSelected(song, albumLocalSongs) }
+                                )
+                            }
+                            items(albumOnlineSongs, key = { "alb_online_${it.id}" }) { onlineSong ->
+                                val currentPlayingId = onlinePlaybackState?.value?.currentSong?.id
+                                val isPlaying = currentPlayingId == onlineSong.id && (onlinePlaybackState?.value?.isPlaying == true)
+                                SongRow(
+                                    onlineSong = onlineSong,
+                                    isPlaying = isPlaying,
+                                    onClick = { onOnlineSongSelected(onlineSong, albumOnlineSongs) },
+                                    onPlayNow = { onOnlineSongSelected(onlineSong, albumOnlineSongs) }
+                                )
+                            }
+                        }
+                    }
                 }
 
                 // EMPTY STATE
-                if (filteredLocalSongs.isEmpty() && onlineResults.isEmpty() && matchedArtists.isEmpty() && matchedAlbums.isEmpty() && !isOnlineLoading) {
+                val isFilterEmpty = when (activeFilter) {
+                    SearchFilter.ALL -> filteredLocalSongs.isEmpty() && onlineResults.isEmpty() && matchedArtists.isEmpty() && matchedAlbums.isEmpty()
+                    SearchFilter.SONGS -> filteredLocalSongs.isEmpty() && onlineResults.isEmpty()
+                    SearchFilter.ARTISTS -> matchedArtists.isEmpty() && artistLocalSongs.isEmpty() && artistOnlineSongs.isEmpty()
+                    SearchFilter.ALBUMS -> matchedAlbums.isEmpty() && albumLocalSongs.isEmpty() && albumOnlineSongs.isEmpty()
+                }
+
+                if (isFilterEmpty && !isOnlineLoading) {
                     item {
+                        val emptyTitle = when (activeFilter) {
+                            SearchFilter.ARTISTS -> "No Artists Found"
+                            SearchFilter.ALBUMS -> "No Albums Found"
+                            SearchFilter.SONGS -> "No Songs Found"
+                            SearchFilter.ALL -> "No Matches Found"
+                        }
+                        val emptyMsg = when (activeFilter) {
+                            SearchFilter.ARTISTS -> "No artists or tracks matched \"$query\"."
+                            SearchFilter.ALBUMS -> "No albums or tracks matched \"$query\"."
+                            SearchFilter.SONGS -> "No songs matched \"$query\"."
+                            SearchFilter.ALL -> "No songs, artists, or albums matched \"$query\". Check spelling or explore categories."
+                        }
                         AuraEmptyState(
-                            title = "No Matches Found",
-                            message = "No songs, artists, or albums matched \"$query\". Check spelling or explore categories.",
+                            title = emptyTitle,
+                            message = emptyMsg,
                             icon = Icons.Default.MusicNote,
                             modifier = Modifier
                                 .fillMaxWidth()

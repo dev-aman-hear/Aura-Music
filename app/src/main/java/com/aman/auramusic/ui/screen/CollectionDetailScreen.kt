@@ -54,6 +54,7 @@ fun CollectionDetailScreen(
     onAddCollectionToPlaylist: (() -> Unit)? = null,
     onFavoriteCollection: (() -> Unit)? = null,
     showShareButton: Boolean = true,
+    showMenuButton: Boolean = true,
 ) {
     val context = LocalContext.current
     val isDark = isSystemInDarkTheme()
@@ -100,16 +101,6 @@ fun CollectionDetailScreen(
                                     context.startActivity(Intent.createChooser(sendIntent, "Share"))
                                 }
                             ) {
-                                Icon(
-                                    imageVector = Icons.Default.Share,
-                                    contentDescription = "Share",
-                                    tint = if (isDark) Color.White else Color.Black
-                                )
-                            }
-                        }
-
-                        Box {
-                            IconButton(onClick = { showTopMenu = true }) {
                                 Icon(
                                     imageVector = Icons.Default.Share,
                                     contentDescription = "Share",

@@ -132,6 +132,7 @@ import com.aman.auramusic.playback.RepeatMode
 import com.aman.auramusic.ui.component.SongArtwork
 import com.aman.auramusic.ui.theme.GlassLevel
 import com.aman.auramusic.ui.theme.liquidGlass
+import com.aman.auramusic.ui.theme.iosLiquidGlass
 import com.aman.auramusic.ui.theme.LocalIsDark
 import com.aman.auramusic.ui.theme.frostedGlass
 import com.aman.auramusic.util.audioQuality
@@ -417,8 +418,8 @@ private fun PlayerHeader(
                 IconButton(
                     onClick = onPlayPause,
                     modifier = Modifier
-                        .background(Color.White.copy(alpha = 0.1f), CircleShape)
                         .size(36.dp)
+                        .iosLiquidGlass(shape = CircleShape, borderWidth = 0.8.dp, elevation = 2.dp)
                 ) {
                     Icon(
                         imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
@@ -430,16 +431,31 @@ private fun PlayerHeader(
                 
                 Spacer(modifier = Modifier.width(8.dp))
 
-                IconButton(onClick = onFavoriteToggle, modifier = Modifier.background(if (isFavorite) Color.White.copy(alpha = 0.95f) else Color.White.copy(alpha = 0.1f), CircleShape).size(36.dp)) {
-                    Icon(if (isFavorite) Icons.Default.Star else Icons.Default.StarBorder, "Favorite", tint = if (isFavorite) Color.Black.copy(alpha = 0.65f) else Color.White, modifier = Modifier.size(20.dp))
+                IconButton(
+                    onClick = onFavoriteToggle,
+                    modifier = Modifier
+                        .size(36.dp)
+                        .iosLiquidGlass(
+                            shape = CircleShape,
+                            tint = if (isFavorite) Color(0xFFFF2D55) else null,
+                            borderWidth = 0.8.dp,
+                            elevation = 2.dp
+                        )
+                ) {
+                    Icon(
+                        imageVector = if (isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                        contentDescription = "Favorite",
+                        tint = if (isFavorite) Color(0xFFFF375F) else Color.White,
+                        modifier = Modifier.size(20.dp)
+                    )
                 }
                 Spacer(modifier = Modifier.width(8.dp))
                 Box {
                     IconButton(
                         onClick = { showMenu = true },
                         modifier = Modifier
-                            .background(Color.White.copy(alpha = 0.15f), CircleShape)
                             .size(36.dp)
+                            .iosLiquidGlass(shape = CircleShape, borderWidth = 0.8.dp, elevation = 2.dp)
                     ) {
                         Icon(
                             imageVector = Icons.Default.MoreHoriz,
@@ -576,13 +592,12 @@ private fun NowPlayingPage(
             Box(
                 modifier = Modifier
                     .size(44.dp)
-                    .liquidGlass(
+                    .iosLiquidGlass(
                         shape = CircleShape,
-                        level = if (isFavorite) GlassLevel.Tinted else GlassLevel.UltraThin,
-                        isDark = true,
                         tint = if (isFavorite) Color(0xFFFF2D55) else null,
-                        elevation = 8.dp,
-                        borderWidth = if (isFavorite) 1.5.dp else 1.1.dp
+                        elevation = 6.dp,
+                        borderWidth = if (isFavorite) 1.4.dp else 1.dp,
+                        sheenAlpha = if (isFavorite) 0.30f else 0.22f
                     )
                     .clickable(onClick = onFavoriteToggle),
                 contentAlignment = Alignment.Center
@@ -599,12 +614,11 @@ private fun NowPlayingPage(
                 Box(
                     modifier = Modifier
                         .size(44.dp)
-                        .liquidGlass(
+                        .iosLiquidGlass(
                             shape = CircleShape,
-                            level = GlassLevel.UltraThin,
-                            isDark = true,
-                            elevation = 8.dp,
-                            borderWidth = 1.1.dp
+                            elevation = 6.dp,
+                            borderWidth = 1.dp,
+                            sheenAlpha = 0.22f
                         )
                         .clickable { showMenu = true },
                     contentAlignment = Alignment.Center
@@ -987,22 +1001,21 @@ private fun PlayerControls(
             // Audio Quality Glass Capsule
             Box(
                 modifier = Modifier
-                    .liquidGlass(
-                        shape = RoundedCornerShape(16.dp),
-                        level = GlassLevel.UltraThin,
-                        isDark = true,
+                    .iosLiquidGlass(
+                        shape = RoundedCornerShape(999.dp),
                         elevation = 4.dp,
-                        borderWidth = 1.dp
+                        borderWidth = 0.9.dp,
+                        sheenAlpha = 0.20f
                     )
                     .clickable { showQ = true }
-                    .padding(horizontal = 12.dp, vertical = 5.dp)
+                    .padding(horizontal = 14.dp, vertical = 6.dp)
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     if (q.badge.contains("Lossless") || q.badge.contains("Stream")) {
                         Icon(
                             imageVector = Icons.Default.Waves,
                             contentDescription = null,
-                            tint = Color.White.copy(alpha = 0.90f),
+                            tint = Color.White.copy(alpha = 0.92f),
                             modifier = Modifier.size(13.dp)
                         )
                         Spacer(Modifier.width(5.dp))
@@ -1011,7 +1024,7 @@ private fun PlayerControls(
                         text = q.badge,
                         style = MaterialTheme.typography.labelSmall,
                         fontWeight = FontWeight.Bold,
-                        color = Color.White.copy(alpha = 0.90f)
+                        color = Color.White.copy(alpha = 0.92f)
                     )
                 }
             }
@@ -1036,13 +1049,11 @@ private fun PlayerControls(
             Box(
                 modifier = Modifier
                     .size(56.dp)
-                    .liquidGlass(
+                    .iosLiquidGlass(
                         shape = CircleShape,
-                        level = GlassLevel.UltraThin,
-                        isDark = true,
-                        elevation = 8.dp,
-                        borderWidth = 1.1.dp,
-                        sheenAlpha = 0.22f
+                        elevation = 6.dp,
+                        borderWidth = 1.dp,
+                        sheenAlpha = 0.20f
                     )
                     .clickable(onClick = onPrevious),
                 contentAlignment = Alignment.Center
@@ -1051,7 +1062,7 @@ private fun PlayerControls(
                     imageVector = Icons.Default.SkipPrevious,
                     contentDescription = "Previous",
                     tint = Color.White,
-                    modifier = Modifier.size(36.dp)
+                    modifier = Modifier.size(34.dp)
                 )
             }
 
@@ -1059,13 +1070,11 @@ private fun PlayerControls(
             Box(
                 modifier = Modifier
                     .size(82.dp)
-                    .liquidGlass(
+                    .iosLiquidGlass(
                         shape = CircleShape,
-                        level = GlassLevel.Regular,
-                        isDark = true,
-                        elevation = 16.dp,
-                        borderWidth = 1.4.dp,
-                        sheenAlpha = 0.35f
+                        elevation = 12.dp,
+                        borderWidth = 1.3.dp,
+                        sheenAlpha = 0.32f
                     )
                     .clickable(onClick = onPlayPause),
                 contentAlignment = Alignment.Center
@@ -1074,7 +1083,7 @@ private fun PlayerControls(
                     imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
                     contentDescription = "Play/Pause",
                     tint = Color.White,
-                    modifier = Modifier.size(48.dp)
+                    modifier = Modifier.size(46.dp)
                 )
             }
 
@@ -1082,13 +1091,11 @@ private fun PlayerControls(
             Box(
                 modifier = Modifier
                     .size(56.dp)
-                    .liquidGlass(
+                    .iosLiquidGlass(
                         shape = CircleShape,
-                        level = GlassLevel.UltraThin,
-                        isDark = true,
-                        elevation = 8.dp,
-                        borderWidth = 1.1.dp,
-                        sheenAlpha = 0.22f
+                        elevation = 6.dp,
+                        borderWidth = 1.dp,
+                        sheenAlpha = 0.20f
                     )
                     .clickable(onClick = onNext),
                 contentAlignment = Alignment.Center
@@ -1097,7 +1104,7 @@ private fun PlayerControls(
                     imageVector = Icons.Default.SkipNext,
                     contentDescription = "Next",
                     tint = Color.White,
-                    modifier = Modifier.size(36.dp)
+                    modifier = Modifier.size(34.dp)
                 )
             }
         }
@@ -1107,15 +1114,13 @@ private fun PlayerControls(
         // Secondary Actions in Floating Glass Capsule (Lyrics, Queue)
         Box(
             modifier = Modifier
-                .liquidGlass(
-                    shape = RoundedCornerShape(26.dp),
-                    level = GlassLevel.UltraThin,
-                    isDark = true,
+                .iosLiquidGlass(
+                    shape = RoundedCornerShape(999.dp),
                     elevation = 6.dp,
                     borderWidth = 1.dp,
-                    sheenAlpha = 0.20f
+                    sheenAlpha = 0.22f
                 )
-                .padding(horizontal = 20.dp, vertical = 6.dp)
+                .padding(horizontal = 22.dp, vertical = 6.dp)
         ) {
             Row(
                 horizontalArrangement = Arrangement.spacedBy(36.dp),
@@ -1128,7 +1133,7 @@ private fun PlayerControls(
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.Article,
                         contentDescription = "Lyrics",
-                        tint = if (currentPage == 0) Color.White else Color.White.copy(alpha = 0.45f),
+                        tint = if (currentPage == 0) Color.White else Color.White.copy(alpha = 0.50f),
                         modifier = Modifier.size(24.dp)
                     )
                 }
@@ -1140,7 +1145,7 @@ private fun PlayerControls(
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.QueueMusic,
                         contentDescription = "Queue",
-                        tint = if (currentPage == 2) Color.White else Color.White.copy(alpha = 0.45f),
+                        tint = if (currentPage == 2) Color.White else Color.White.copy(alpha = 0.50f),
                         modifier = Modifier.size(25.dp)
                     )
                 }

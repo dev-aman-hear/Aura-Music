@@ -68,9 +68,16 @@ data class LiquidGlassTokens(
      */
     fun containerBrush(
         level: GlassLevel,
-        customTint: Color? = null
+        customTint: Color? = null,
+        isDark: Boolean = this.isDark
     ): Brush {
-        val tint = customTint ?: effectiveTint
+        val tint = customTint ?: (if (isDark) {
+            if (config.tintHex.isNotBlank() || config.accentTintEnabled) effectiveTint
+            else if (isAmoled) Color(0xFF0F0D14) else Color(0xFF1E1A26)
+        } else {
+            if (config.tintHex.isNotBlank() || config.accentTintEnabled) effectiveTint
+            else Color.White
+        })
 
         if (reduceTransparency) {
             // Accessible solid opaque fallback
@@ -87,8 +94,8 @@ data class LiquidGlassTokens(
         return when (level) {
             GlassLevel.UltraThin -> {
                 if (isDark) {
-                    val topAlpha = (intensity * 0.40f + 0.20f).coerceIn(0.25f, 0.75f)
-                    val bottomAlpha = (intensity * 0.55f + 0.35f).coerceIn(0.45f, 0.90f)
+                    val topAlpha = (intensity * 0.22f + 0.08f).coerceIn(0.08f, 0.35f)
+                    val bottomAlpha = (intensity * 0.30f + 0.15f).coerceIn(0.15f, 0.50f)
                     Brush.verticalGradient(
                         listOf(
                             tint.copy(alpha = topAlpha),
@@ -96,8 +103,8 @@ data class LiquidGlassTokens(
                         )
                     )
                 } else {
-                    val topAlpha = (intensity * 0.35f + 0.60f).coerceIn(0.75f, 0.96f)
-                    val bottomAlpha = (intensity * 0.35f + 0.52f).coerceIn(0.68f, 0.92f)
+                    val topAlpha = (intensity * 0.22f + 0.12f).coerceIn(0.12f, 0.40f)
+                    val bottomAlpha = (intensity * 0.28f + 0.18f).coerceIn(0.18f, 0.50f)
                     Brush.verticalGradient(
                         listOf(
                             Color.White.copy(alpha = topAlpha),
@@ -108,8 +115,8 @@ data class LiquidGlassTokens(
             }
             GlassLevel.Regular -> {
                 if (isDark) {
-                    val topAlpha = (intensity * 0.45f + 0.25f).coerceIn(0.35f, 0.85f)
-                    val bottomAlpha = (intensity * 0.60f + 0.35f).coerceIn(0.55f, 0.95f)
+                    val topAlpha = (intensity * 0.32f + 0.12f).coerceIn(0.15f, 0.55f)
+                    val bottomAlpha = (intensity * 0.45f + 0.22f).coerceIn(0.25f, 0.70f)
                     Brush.verticalGradient(
                         listOf(
                             tint.copy(alpha = topAlpha),
@@ -117,8 +124,8 @@ data class LiquidGlassTokens(
                         )
                     )
                 } else {
-                    val topAlpha = (intensity * 0.25f + 0.70f).coerceIn(0.82f, 0.98f)
-                    val bottomAlpha = (intensity * 0.25f + 0.65f).coerceIn(0.78f, 0.95f)
+                    val topAlpha = (intensity * 0.28f + 0.25f).coerceIn(0.25f, 0.60f)
+                    val bottomAlpha = (intensity * 0.32f + 0.30f).coerceIn(0.30f, 0.70f)
                     Brush.verticalGradient(
                         listOf(
                             Color.White.copy(alpha = topAlpha),
@@ -129,8 +136,8 @@ data class LiquidGlassTokens(
             }
             GlassLevel.Thick -> {
                 if (isDark) {
-                    val topAlpha = (intensity * 0.58f).coerceIn(0.18f, 0.88f)
-                    val bottomAlpha = (intensity * 0.92f).coerceIn(0.35f, 0.97f)
+                    val topAlpha = (intensity * 0.48f).coerceIn(0.18f, 0.75f)
+                    val bottomAlpha = (intensity * 0.75f).coerceIn(0.35f, 0.88f)
                     Brush.verticalGradient(
                         listOf(
                             tint.copy(alpha = topAlpha),
@@ -138,8 +145,8 @@ data class LiquidGlassTokens(
                         )
                     )
                 } else {
-                    val topAlpha = (intensity * 0.97f).coerceIn(0.70f, 0.99f)
-                    val bottomAlpha = (intensity * 0.90f).coerceIn(0.60f, 0.96f)
+                    val topAlpha = (intensity * 0.65f).coerceIn(0.40f, 0.85f)
+                    val bottomAlpha = (intensity * 0.75f).coerceIn(0.45f, 0.88f)
                     Brush.verticalGradient(
                         listOf(
                             Color.White.copy(alpha = topAlpha),
@@ -151,9 +158,9 @@ data class LiquidGlassTokens(
             GlassLevel.Tinted -> {
                 val activeAccent = customTint ?: (if (config.accentTintEnabled) effectiveTint else accentColor)
                 if (isDark) {
-                    val topAlpha = (intensity * 0.45f + 0.15f).coerceIn(0.25f, 0.85f)
-                    val midAlpha = (intensity * 0.25f + 0.08f).coerceIn(0.10f, 0.60f)
-                    val bottomAlpha = (intensity * 0.85f).coerceIn(0.40f, 0.95f)
+                    val topAlpha = (intensity * 0.40f + 0.12f).coerceIn(0.20f, 0.70f)
+                    val midAlpha = (intensity * 0.20f + 0.06f).coerceIn(0.08f, 0.45f)
+                    val bottomAlpha = (intensity * 0.65f).coerceIn(0.30f, 0.80f)
                     Brush.verticalGradient(
                         listOf(
                             activeAccent.copy(alpha = topAlpha),
@@ -162,8 +169,8 @@ data class LiquidGlassTokens(
                         )
                     )
                 } else {
-                    val topAlpha = (intensity * 0.35f + 0.10f).coerceIn(0.18f, 0.70f)
-                    val bottomAlpha = (intensity * 0.88f).coerceIn(0.50f, 0.95f)
+                    val topAlpha = (intensity * 0.30f + 0.10f).coerceIn(0.15f, 0.55f)
+                    val bottomAlpha = (intensity * 0.60f).coerceIn(0.35f, 0.75f)
                     Brush.verticalGradient(
                         listOf(
                             activeAccent.copy(alpha = topAlpha),
@@ -181,7 +188,8 @@ data class LiquidGlassTokens(
      */
     fun borderBrush(
         level: GlassLevel,
-        customTint: Color? = null
+        customTint: Color? = null,
+        isDark: Boolean = this.isDark
     ): Brush {
         val mult = config.highlightStrength
         val activeAccent = customTint ?: (if (level == GlassLevel.Tinted) accentColor else null)
@@ -221,15 +229,15 @@ data class LiquidGlassTokens(
                 )
             )
         } else {
-            val topRim = (0.98f * mult).coerceIn(0.30f, 1.0f)
-            val topMid = (0.65f * mult).coerceIn(0.20f, 0.90f)
-            val lowerMid = (0.40f * mult).coerceIn(0.10f, 0.60f)
+            val topRim = (0.90f * mult).coerceIn(0.25f, 1.0f)
+            val topMid = (0.50f * mult).coerceIn(0.15f, 0.80f)
+            val lowerMid = (0.25f * mult).coerceIn(0.08f, 0.50f)
             Brush.verticalGradient(
                 listOf(
                     Color.White.copy(alpha = topRim),
                     Color.White.copy(alpha = topMid),
                     Color(0xFFCBD5E1).copy(alpha = lowerMid),
-                    Color(0xFF94A3B8).copy(alpha = 0.25f)
+                    Color(0xFF94A3B8).copy(alpha = 0.20f)
                 )
             )
         }
@@ -241,9 +249,10 @@ data class LiquidGlassTokens(
     fun borderStroke(
         level: GlassLevel,
         customTint: Color? = null,
-        width: Dp = 1.1.dp
+        width: Dp = 1.1.dp,
+        isDark: Boolean = this.isDark
     ): BorderStroke {
-        return BorderStroke(width, borderBrush(level, customTint))
+        return BorderStroke(width, borderBrush(level, customTint, isDark))
     }
 
     /**
@@ -263,7 +272,10 @@ data class LiquidGlassTokens(
     /**
      * Top specular sheen glare alpha.
      */
-    fun sheenAlpha(level: GlassLevel): Float {
+    fun sheenAlpha(
+        level: GlassLevel,
+        isDark: Boolean = this.isDark
+    ): Float {
         if (reduceMotion || reduceTransparency) return 0f
         val mult = config.highlightStrength
         return when (level) {
