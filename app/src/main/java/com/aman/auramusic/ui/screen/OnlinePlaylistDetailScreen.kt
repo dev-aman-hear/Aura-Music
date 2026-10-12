@@ -75,6 +75,7 @@ fun OnlinePlaylistDetailScreen(
     isSavedInLibrary: Boolean = false,
     onToggleSaveToLibrary: (() -> Unit)? = null,
     onAddOnlineSongToPlaylist: ((OnlineSong) -> Unit)? = null,
+    showMenuButton: Boolean = true,
     modifier: Modifier = Modifier
 ) {
     BackHandler(onBack = onBack)

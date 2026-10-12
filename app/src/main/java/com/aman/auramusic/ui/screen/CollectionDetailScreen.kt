@@ -111,64 +111,82 @@ fun CollectionDetailScreen(
                         Box {
                             IconButton(onClick = { showTopMenu = true }) {
                                 Icon(
-                                    imageVector = Icons.Default.MoreVert,
-                                    contentDescription = "Playlist Options",
+                                    imageVector = Icons.Default.Share,
+                                    contentDescription = "Share",
                                     tint = if (isDark) Color.White else Color.Black
                                 )
                             }
-                            DropdownMenu(
-                                expanded = showTopMenu,
-                                onDismissRequest = { showTopMenu = false }
-                            ) {
-                                if (onAddCollectionToQueue != null) {
-                                    DropdownMenuItem(
-                                        text = { Text("Add Playlist to Queue", fontWeight = FontWeight.SemiBold) },
-                                        leadingIcon = { Icon(Icons.AutoMirrored.Filled.QueueMusic, contentDescription = null) },
-                                        onClick = {
-                                            showTopMenu = false
-                                            onAddCollectionToQueue()
-                                        }
+                        }
+
+                        val hasMenuItems = onAddCollectionToQueue != null ||
+                                onAddCollectionToPlaylist != null ||
+                                onFavoriteCollection != null ||
+                                onRenamePlaylist != null ||
+                                onDeletePlaylist != null
+
+                        if (showMenuButton && hasMenuItems) {
+                            Box {
+                                IconButton(onClick = { showTopMenu = true }) {
+                                    Icon(
+                                        imageVector = Icons.Default.MoreVert,
+                                        contentDescription = "Playlist Options",
+                                        tint = if (isDark) Color.White else Color.Black
                                     )
                                 }
-                                if (onAddCollectionToPlaylist != null) {
-                                    DropdownMenuItem(
-                                        text = { Text("Add Playlist to...", fontWeight = FontWeight.SemiBold) },
-                                        leadingIcon = { Icon(Icons.AutoMirrored.Filled.PlaylistAdd, contentDescription = null) },
-                                        onClick = {
-                                            showTopMenu = false
-                                            onAddCollectionToPlaylist()
-                                        }
-                                    )
-                                }
-                                if (onFavoriteCollection != null) {
-                                    DropdownMenuItem(
-                                        text = { Text("Add All to Favorites", fontWeight = FontWeight.SemiBold) },
-                                        leadingIcon = { Icon(Icons.Default.Favorite, contentDescription = null, tint = Color(0xFFFA2D48)) },
-                                        onClick = {
-                                            showTopMenu = false
-                                            onFavoriteCollection()
-                                        }
-                                    )
-                                }
-                                if (onRenamePlaylist != null) {
-                                    DropdownMenuItem(
-                                        text = { Text("Rename Playlist", fontWeight = FontWeight.SemiBold) },
-                                        leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null) },
-                                        onClick = {
-                                            showTopMenu = false
-                                            onRenamePlaylist()
-                                        }
-                                    )
-                                }
-                                if (onDeletePlaylist != null) {
-                                    DropdownMenuItem(
-                                        text = { Text("Delete Playlist", fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.error) },
-                                        leadingIcon = { Icon(Icons.Default.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
-                                        onClick = {
-                                            showTopMenu = false
-                                            onDeletePlaylist()
-                                        }
-                                    )
+                                DropdownMenu(
+                                    expanded = showTopMenu,
+                                    onDismissRequest = { showTopMenu = false }
+                                ) {
+                                    if (onAddCollectionToQueue != null) {
+                                        DropdownMenuItem(
+                                            text = { Text("Add Playlist to Queue", fontWeight = FontWeight.SemiBold) },
+                                            leadingIcon = { Icon(Icons.AutoMirrored.Filled.QueueMusic, contentDescription = null) },
+                                            onClick = {
+                                                showTopMenu = false
+                                                onAddCollectionToQueue()
+                                            }
+                                        )
+                                    }
+                                    if (onAddCollectionToPlaylist != null) {
+                                        DropdownMenuItem(
+                                            text = { Text("Add Playlist to...", fontWeight = FontWeight.SemiBold) },
+                                            leadingIcon = { Icon(Icons.AutoMirrored.Filled.PlaylistAdd, contentDescription = null) },
+                                            onClick = {
+                                                showTopMenu = false
+                                                onAddCollectionToPlaylist()
+                                            }
+                                        )
+                                    }
+                                    if (onFavoriteCollection != null) {
+                                        DropdownMenuItem(
+                                            text = { Text("Add All to Favorites", fontWeight = FontWeight.SemiBold) },
+                                            leadingIcon = { Icon(Icons.Default.Favorite, contentDescription = null, tint = Color(0xFFFA2D48)) },
+                                            onClick = {
+                                                showTopMenu = false
+                                                onFavoriteCollection()
+                                            }
+                                        )
+                                    }
+                                    if (onRenamePlaylist != null) {
+                                        DropdownMenuItem(
+                                            text = { Text("Rename Playlist", fontWeight = FontWeight.SemiBold) },
+                                            leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null) },
+                                            onClick = {
+                                                showTopMenu = false
+                                                onRenamePlaylist()
+                                            }
+                                        )
+                                    }
+                                    if (onDeletePlaylist != null) {
+                                        DropdownMenuItem(
+                                            text = { Text("Delete Playlist", fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.error) },
+                                            leadingIcon = { Icon(Icons.Default.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
+                                            onClick = {
+                                                showTopMenu = false
+                                                onDeletePlaylist()
+                                            }
+                                        )
+                                    }
                                 }
                             }
                         }

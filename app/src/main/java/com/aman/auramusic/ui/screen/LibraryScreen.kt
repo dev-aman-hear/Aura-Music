@@ -259,7 +259,8 @@ fun LibraryScreen(
             onBack = { selectedOnlinePlaylist = null },
             onSongSelected = { song, queue ->
                 onOnlineSongSelected(song, queue)
-            }
+            },
+            showMenuButton = !isSavedAlbum
         )
         return
     }
