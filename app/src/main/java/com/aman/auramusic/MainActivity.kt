@@ -666,8 +666,7 @@ fun MusicScreen(musicViewModel: MusicViewModel) {
                                 onAddCollectionToQueue = { playerViewModel.addToQueue(albumSongs) },
                                 onAddCollectionToPlaylist = { songsToAddToPlaylist = albumSongs },
                                 onFavoriteCollection = { albumSongs.forEach { musicViewModel.toggleFavorite(it.id, true) } },
-                                showShareButton = false,
-                                showMenuButton = false
+                                showShareButton = false
                             )
                         }
                         selectedArtistName != null -> {

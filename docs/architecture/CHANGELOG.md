@@ -10,12 +10,9 @@ Records significant architectural evolution, design decisions, and system-level 
 - **Unified Artist Detail Experience**:
   - Unified local/offline artist detail screen with online `ArtistDetailSheet`, showing hero banner, prominent play button, top tracks, and albums.
   - Removed audience number text from saved online artist cards in `LibraryScreen`.
-- **Library Navigation & Screen Cleanup**:
+- **Library Navigation State Persistence**:
   - Converted `LibraryScreen.selectedTab` to `rememberSaveable` with enum Saver to maintain active tab (Albums, Artists, Playlists) across drilldown navigation and back presses.
   - Added in-screen local album drill-down with back handling to preserve scroll position and avoid screen unmounting.
-  - Removed top filter search bar from `LibraryScreen` to streamline library browsing.
-  - Removed the 3-dot overflow menu button from album detail views in `CollectionDetailScreen` and `OnlinePlaylistDetailScreen` when viewing albums.
-  - Removed the 3-dot overflow menu button from the Explore section's "Album Mix" and other collections in `OnlineScreen`, and purged duplicate "Play All" and "Shuffle" actions from `OnlinePlaylistDetailScreen`'s overflow menu since primary controls already exist below the artwork.
 
 ---
 

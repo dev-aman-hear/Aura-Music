@@ -220,8 +220,7 @@ fun LibraryScreen(
             onSongSelected = { onSongSelected(it, albumSongs) },
             onToggleFavorite = onFavoriteToggle,
             onAddToPlaylist = onAddToPlaylist,
-            showShareButton = false,
-            showMenuButton = false
+            showShareButton = false
         )
         return
     }

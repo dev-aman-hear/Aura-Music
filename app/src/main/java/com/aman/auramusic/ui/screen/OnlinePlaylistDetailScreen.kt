@@ -117,19 +117,19 @@ fun OnlinePlaylistDetailScreen(
                             )
                         }
 
-                        if (showMenuButton && onToggleSaveToLibrary != null) {
-                            Box {
-                                IconButton(onClick = { showTopMenu = true }) {
-                                    Icon(
-                                        imageVector = Icons.Default.MoreVert,
-                                        contentDescription = "Options",
-                                        tint = if (isDark) Color.White else Color.Black
-                                    )
-                                }
-                                DropdownMenu(
-                                    expanded = showTopMenu,
-                                    onDismissRequest = { showTopMenu = false }
-                                ) {
+                        Box {
+                            IconButton(onClick = { showTopMenu = true }) {
+                                Icon(
+                                    imageVector = Icons.Default.MoreVert,
+                                    contentDescription = "Options",
+                                    tint = if (isDark) Color.White else Color.Black
+                                )
+                            }
+                            DropdownMenu(
+                                expanded = showTopMenu,
+                                onDismissRequest = { showTopMenu = false }
+                            ) {
+                                if (onToggleSaveToLibrary != null) {
                                     DropdownMenuItem(
                                         text = { Text(if (isSavedInLibrary) "Remove from Library" else "Save to Library", fontWeight = FontWeight.SemiBold) },
                                         leadingIcon = {
@@ -145,6 +145,25 @@ fun OnlinePlaylistDetailScreen(
                                         }
                                     )
                                 }
+                                DropdownMenuItem(
+                                    text = { Text("Play All", fontWeight = FontWeight.SemiBold) },
+                                    leadingIcon = { Icon(Icons.Default.PlayArrow, contentDescription = null, tint = AuraPrimary) },
+                                    onClick = {
+                                        showTopMenu = false
+                                        if (songs.isNotEmpty()) onSongSelected(songs.first(), songs)
+                                    }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("Shuffle", fontWeight = FontWeight.SemiBold) },
+                                    leadingIcon = { Icon(Icons.Default.Shuffle, contentDescription = null) },
+                                    onClick = {
+                                        showTopMenu = false
+                                        if (songs.isNotEmpty()) {
+                                            val shuffled = songs.shuffled()
+                                            onSongSelected(shuffled.first(), shuffled)
+                                        }
+                                    }
+                                )
                             }
                         }
                     }
