@@ -278,7 +278,7 @@ class YouTubeArtistExtractionTest {
     fun testNoSongArtworkFallbackForArtists() {
         // When creating ArtistItem for an artist without YouTube Music profile image,
         // artworkModel must be null, never falling back to song artwork or album covers.
-        val artistWithNoProfile = com.aman.auramusic.ui.screen.hometest.ArtistItem(
+        val artistWithNoProfile = com.aman.auramusic.ui.screen.home.ArtistItem(
             name = "Local Guitarist",
             songCountText = "5 songs",
             artworkModel = null,
@@ -288,7 +288,7 @@ class YouTubeArtistExtractionTest {
         org.junit.Assert.assertNull(artistWithNoProfile.artworkModel)
 
         // When YouTube Music provides a profile image, artworkModel is that image URL
-        val artistWithProfile = com.aman.auramusic.ui.screen.hometest.ArtistItem(
+        val artistWithProfile = com.aman.auramusic.ui.screen.home.ArtistItem(
             name = "Arijit Singh",
             songCountText = "YouTube Music",
             artworkModel = "https://lh3.googleusercontent.com/artist_arijit",
@@ -323,26 +323,26 @@ class YouTubeArtistExtractionTest {
     @Test
     fun testMatchesArtistNameExactAndVariations() {
         // Exact match
-        assertTrue(com.aman.auramusic.ui.screen.hometest.HomeTestViewModel.matchesArtistName("Gurjit Gill", "Gurjit Gill"))
+        assertTrue(com.aman.auramusic.ui.screen.home.HomeViewModel.matchesArtistName("Gurjit Gill", "Gurjit Gill"))
         // Case insensitive
-        assertTrue(com.aman.auramusic.ui.screen.hometest.HomeTestViewModel.matchesArtistName("gurjit gill", "GURJIT GILL"))
+        assertTrue(com.aman.auramusic.ui.screen.home.HomeViewModel.matchesArtistName("gurjit gill", "GURJIT GILL"))
         // Spacing variations
-        assertTrue(com.aman.auramusic.ui.screen.hometest.HomeTestViewModel.matchesArtistName("Gurjit  Gill", "Gurjit Gill"))
-        assertTrue(com.aman.auramusic.ui.screen.hometest.HomeTestViewModel.matchesArtistName("Gurjit Gill ", "Gurjit Gill"))
+        assertTrue(com.aman.auramusic.ui.screen.home.HomeViewModel.matchesArtistName("Gurjit  Gill", "Gurjit Gill"))
+        assertTrue(com.aman.auramusic.ui.screen.home.HomeViewModel.matchesArtistName("Gurjit Gill ", "Gurjit Gill"))
         // Topic suffix variation
-        assertTrue(com.aman.auramusic.ui.screen.hometest.HomeTestViewModel.matchesArtistName("Gurjit Gill - Topic", "Gurjit Gill"))
+        assertTrue(com.aman.auramusic.ui.screen.home.HomeViewModel.matchesArtistName("Gurjit Gill - Topic", "Gurjit Gill"))
         // Punctuation variation
-        assertTrue(com.aman.auramusic.ui.screen.hometest.HomeTestViewModel.matchesArtistName("A.R. Rahman", "A. R. Rahman"))
-        assertTrue(com.aman.auramusic.ui.screen.hometest.HomeTestViewModel.matchesArtistName("A.R. Rahman", "AR Rahman"))
+        assertTrue(com.aman.auramusic.ui.screen.home.HomeViewModel.matchesArtistName("A.R. Rahman", "A. R. Rahman"))
+        assertTrue(com.aman.auramusic.ui.screen.home.HomeViewModel.matchesArtistName("A.R. Rahman", "AR Rahman"))
     }
 
     @Test
     fun testMatchesArtistNameNegative() {
         // Completely different or partial artist names must NOT match
-        assertFalse(com.aman.auramusic.ui.screen.hometest.HomeTestViewModel.matchesArtistName("Gurjit Gill", "Gill"))
-        assertFalse(com.aman.auramusic.ui.screen.hometest.HomeTestViewModel.matchesArtistName("Gurjit Gill", "Gurjit"))
-        assertFalse(com.aman.auramusic.ui.screen.hometest.HomeTestViewModel.matchesArtistName("Gurjit Gill", "Jassi Gill"))
-        assertFalse(com.aman.auramusic.ui.screen.hometest.HomeTestViewModel.matchesArtistName("Arijit Singh", "Diljit Dosanjh"))
+        assertFalse(com.aman.auramusic.ui.screen.home.HomeViewModel.matchesArtistName("Gurjit Gill", "Gill"))
+        assertFalse(com.aman.auramusic.ui.screen.home.HomeViewModel.matchesArtistName("Gurjit Gill", "Gurjit"))
+        assertFalse(com.aman.auramusic.ui.screen.home.HomeViewModel.matchesArtistName("Gurjit Gill", "Jassi Gill"))
+        assertFalse(com.aman.auramusic.ui.screen.home.HomeViewModel.matchesArtistName("Arijit Singh", "Diljit Dosanjh"))
     }
 
     @Test

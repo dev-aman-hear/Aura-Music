@@ -1,4 +1,4 @@
-package com.aman.auramusic.ui.screen.hometest
+package com.aman.auramusic.ui.screen.home
 
 import android.content.Context
 import com.google.gson.Gson
@@ -6,6 +6,7 @@ import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import kotlin.jvm.Synchronized
 
 /**
  * Metadata for the daily featured album or playlist card.

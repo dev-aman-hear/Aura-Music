@@ -129,8 +129,7 @@ import com.aman.auramusic.ui.component.SongOptionsDialog
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.material3.Divider
-import com.aman.auramusic.ui.screen.HomeScreen
-import com.aman.auramusic.ui.screen.hometest.HomeTestScreen
+import com.aman.auramusic.ui.screen.home.HomeScreen
 import com.aman.auramusic.ui.screen.OnlineScreen
 import com.aman.auramusic.ui.screen.LibraryScreen
 import androidx.compose.runtime.DisposableEffect
@@ -147,8 +146,8 @@ import com.aman.auramusic.ui.screen.PlayerScreen
 import com.aman.auramusic.ui.screen.SearchScreen
 import com.aman.auramusic.ui.screen.SettingsScreen
 import com.aman.auramusic.ui.screen.CollectionDetailScreen
-import com.aman.auramusic.ui.screen.hometest.ArtistDetailSheet
-import com.aman.auramusic.ui.screen.hometest.ArtistItem
+import com.aman.auramusic.ui.screen.home.ArtistDetailSheet
+import com.aman.auramusic.ui.screen.home.ArtistItem
 import com.aman.auramusic.online.network.repository.YouTubeArtistRepositoryImpl
 import com.aman.auramusic.online.network.repository.OnlineMusicRepository
 import com.aman.auramusic.util.ArtistArtworkCache
@@ -797,7 +796,7 @@ fun MusicScreen(musicViewModel: MusicViewModel) {
                         }
                         else -> {
                             when (selectedTab) {
-                                AppTab.Home -> HomeTestScreen(
+                                AppTab.Home -> HomeScreen(
                                     songs = filteredSongs,
                                     username = username,
                                     history = playbackHistory,

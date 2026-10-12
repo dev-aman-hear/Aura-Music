@@ -209,7 +209,7 @@ class HomeRecommendationsDeduplicationTest {
 
         val localSongs = listOf(localC)
 
-        // Process Listen Again logic as implemented in HomeTestViewModel
+        // Process Listen Again logic as implemented in HomeViewModel
         val seenTrackKeys = mutableSetOf<String>()
         val resultTitles = mutableListOf<String>()
 

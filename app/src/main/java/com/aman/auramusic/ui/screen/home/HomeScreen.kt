@@ -1,4 +1,4 @@
-package com.aman.auramusic.ui.screen.hometest
+package com.aman.auramusic.ui.screen.home
 
 import android.widget.Toast
 import androidx.compose.animation.core.animateFloatAsState
@@ -42,7 +42,7 @@ import java.util.Date
 import java.util.Locale
 
 @Composable
-fun HomeTestScreen(
+fun HomeScreen(
     songs: List<Song>,
     username: String,
     history: List<PlaybackHistoryEntry>,
@@ -68,7 +68,7 @@ fun HomeTestScreen(
     onRemoveSavedOnlineAlbum: ((String) -> Unit)? = null,
     homeResetKey: Int = 0,
     modifier: Modifier = Modifier,
-    viewModel: HomeTestViewModel = hiltViewModel()
+    viewModel: HomeViewModel = hiltViewModel()
 ) {
     val isDark = LocalIsDark.current
     val context = LocalContext.current
@@ -100,8 +100,6 @@ fun HomeTestScreen(
         viewModel.loadData(songs, history)
     }
 
-    // Reselecting Home must dismiss in-screen detail overlays, even when Home was
-    // already the selected bottom-navigation tab.
     LaunchedEffect(homeResetKey) {
         if (homeResetKey > 0) {
             selectedArtist = null
@@ -121,7 +119,6 @@ fun HomeTestScreen(
         }
     }
 
-    // Dynamic greeting based on time of day
     val timeGreeting = remember {
         val hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
         when (hour) {
@@ -147,26 +144,6 @@ fun HomeTestScreen(
         if (trimmed.isNotBlank() && trimmed != "Master") trimmed.first().uppercase() else "A"
     }
 
-    // Background gradient: Sophisticated charcoal layered surfaces
-    val bgGradient = if (isDark) {
-        Brush.verticalGradient(
-            listOf(
-                Color(0xFF0F0E13),
-                Color(0xFF0A090D),
-                Color(0xFF070709)
-            )
-        )
-    } else {
-        Brush.verticalGradient(
-            listOf(
-                Color(0xFFFFFFFF),
-                Color(0xFFF7F8FA),
-                MaterialTheme.colorScheme.background
-            )
-        )
-    }
-
-    // Category Detail Bottom Sheet
     if (selectedCategory != null) {
         CategoryDetailSheet(
             category = selectedCategory!!,
@@ -189,7 +166,6 @@ fun HomeTestScreen(
         )
     }
 
-    // Full See All Grid of Artists
     if (showAllArtistsSheet) {
         AllArtistsSheet(
             artists = uiState.artists,
@@ -209,7 +185,6 @@ fun HomeTestScreen(
         )
     }
 
-    // Full See All List of Quick Hits
     if (showAllQuickHitsSheet) {
         val allQuickHitTracks = remember(uiState.quickHitsColumns) {
             uiState.quickHitsColumns.flatten()
@@ -232,7 +207,6 @@ fun HomeTestScreen(
         )
     }
 
-    // Full See All Grid of Categories
     if (showAllCategoriesSheet) {
         AllCategoriesSheet(
             categories = uiState.categories,
@@ -250,7 +224,6 @@ fun HomeTestScreen(
         )
     }
 
-    // Song Options Menu
     if (selectedSongOptions != null) {
         SongOptionsDialog(
             song = selectedSongOptions!!,
@@ -314,188 +287,178 @@ fun HomeTestScreen(
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(bottom = 160.dp)
                 ) {
-                // 1. Top Header
-                item(key = "hometest_header") {
-                    HomeTestHeader(
-                        timeGreeting = timeGreeting,
-                        username = cleanName,
-                        dateText = dateHeader,
-                        userInitial = userInitial,
-                        isOffline = uiState.isOffline,
-                        onOpenSettings = onOpenSettings,
-                        onRefresh = {
-                            viewModel.loadData(songs, history, forceRefresh = true)
-                            onRefresh()
-                        }
-                    )
-                }
+                    item(key = "home_header") {
+                        HomeHeader(
+                            timeGreeting = timeGreeting,
+                            username = cleanName,
+                            dateText = dateHeader,
+                            userInitial = userInitial,
+                            isOffline = uiState.isOffline,
+                            onOpenSettings = onOpenSettings,
+                            onRefresh = {
+                                viewModel.loadData(songs, history, forceRefresh = true)
+                                onRefresh()
+                            }
+                        )
+                    }
 
-                // 2. A. Daily Featured Album or Playlist Card (Refreshed once per day)
-                uiState.featuredItem?.let { featured ->
-                    item(key = "hometest_daily_featured") {
-                        DailyFeaturedCard(
-                            item = featured,
-                            onClick = {
-                                if (featured.albumName != null) {
-                                    onAlbumSelected(featured.albumName)
-                                } else if (featured.playlistId != null) {
-                                    onPlaylistSelected(featured.playlistId)
-                                } else if (uiState.featuredTracks.isNotEmpty()) {
-                                    onOnlineSongSelected(
-                                        uiState.featuredTracks.first(),
-                                        uiState.featuredTracks
-                                    )
-                                } else if (uiState.trendingTracks.isNotEmpty()) {
-                                    val firstTrend = uiState.trendingTracks.first()
-                                    if (firstTrend.isLocalAvailable && firstTrend.localMatch != null) {
-                                        onSongSelected(firstTrend.localMatch, songs)
+                    uiState.featuredItem?.let { featured ->
+                        item(key = "home_daily_featured") {
+                            DailyFeaturedCard(
+                                item = featured,
+                                onClick = {
+                                    if (featured.albumName != null) {
+                                        onAlbumSelected(featured.albumName)
+                                    } else if (featured.playlistId != null) {
+                                        onPlaylistSelected(featured.playlistId)
+                                    } else if (uiState.featuredTracks.isNotEmpty()) {
+                                        onOnlineSongSelected(
+                                            uiState.featuredTracks.first(),
+                                            uiState.featuredTracks
+                                        )
+                                    } else if (uiState.trendingTracks.isNotEmpty()) {
+                                        val firstTrend = uiState.trendingTracks.first()
+                                        if (firstTrend.isLocalAvailable && firstTrend.localMatch != null) {
+                                            onSongSelected(firstTrend.localMatch, songs)
+                                        } else {
+                                            onOnlineSongSelected(
+                                                firstTrend.onlineSong,
+                                                uiState.trendingTracks.map { it.onlineSong }
+                                            )
+                                        }
+                                    }
+                                }
+                            )
+                        }
+                    }
+
+                    if (uiState.trendingTracks.isNotEmpty()) {
+                        item(key = "home_trending_section") {
+                            TrendingSongsSection(
+                                tracks = uiState.trendingTracks,
+                                onTrackClick = { item ->
+                                    if (item.isLocalAvailable && item.localMatch != null) {
+                                        onSongSelected(item.localMatch, songs)
                                     } else {
                                         onOnlineSongSelected(
-                                            firstTrend.onlineSong,
+                                            item.onlineSong,
                                             uiState.trendingTracks.map { it.onlineSong }
                                         )
                                     }
                                 }
-                            }
-                        )
-                    }
-                }
-
-                // 3. B. Trending Songs (Horizontally swipeable, YouTube Music / Curated)
-                if (uiState.trendingTracks.isNotEmpty()) {
-                    item(key = "hometest_trending_section") {
-                        TrendingSongsSection(
-                            tracks = uiState.trendingTracks,
-                            onTrackClick = { item ->
-                                if (item.isLocalAvailable && item.localMatch != null) {
-                                    onSongSelected(item.localMatch, songs)
-                                } else {
-                                    onOnlineSongSelected(
-                                        item.onlineSong,
-                                        uiState.trendingTracks.map { it.onlineSong }
-                                    )
-                                }
-                            }
-                        )
-                    }
-                }
-
-                // 3.5 Listen Again (Populated from actual playback history, Quick Hit style 2*x)
-                if (uiState.listenAgainColumns.isNotEmpty()) {
-                    item(key = "hometest_listen_again_section") {
-                        val allOnlineListenAgain = remember(uiState.listenAgainColumns) {
-                            uiState.listenAgainColumns.flatten().mapNotNull { (it as? QuickHitTrack.OnlineTrack)?.onlineSong }
-                        }
-                        ListenAgainSection(
-                            columns = uiState.listenAgainColumns,
-                            currentSongId = currentSongId,
-                            isPlaying = isPlaying,
-                            onTrackClick = { track ->
-                                when (track) {
-                                    is QuickHitTrack.LocalTrack -> onSongSelected(track.song, songs)
-                                    is QuickHitTrack.OnlineTrack -> onOnlineSongSelected(
-                                        track.onlineSong,
-                                        allOnlineListenAgain.ifEmpty { listOf(track.onlineSong) }
-                                    )
-                                }
-                            },
-                            onOptionsClick = { song -> selectedSongOptions = song }
-                        )
-                    }
-                }
-
-                // 4. C. Artists Section (Rounded-square artwork cards)
-                if (uiState.artists.isNotEmpty()) {
-                    item(key = "hometest_artists_section") {
-                        ArtistsSection(
-                            artists = uiState.artists,
-                            onArtistClick = { artistItem ->
-                                selectedArtist = artistItem
-                                coroutineScope.launch {
-                                    isArtistLoading = true
-                                    val catalogue = viewModel.fetchArtistCatalogue(artistItem, songs)
-                                    artistOnlineSongs = catalogue.onlineSongs
-                                    artistLocalSongs = catalogue.localSongs
-                                    artistOnlineAlbums = catalogue.onlineAlbums
-                                    artistAudienceText = catalogue.audienceText
-                                    isArtistLoading = false
-                                }
-                            },
-                            onSeeAllClick = { showAllArtistsSheet = true }
-                        )
-                    }
-                }
-
-                // 5. D. Quick Hits Section (Horizontally draggable across 3-row stacked columns)
-                if (uiState.quickHitsColumns.isNotEmpty()) {
-                    item(key = "hometest_quick_hits_section") {
-                        val allOnlineQuickHits = remember(uiState.quickHitsColumns) {
-                            uiState.quickHitsColumns.flatten().mapNotNull { (it as? QuickHitTrack.OnlineTrack)?.onlineSong }
-                        }
-                        QuickHitsSection(
-                            columns = uiState.quickHitsColumns,
-                            currentSongId = currentSongId,
-                            isPlaying = isPlaying,
-                            onTrackClick = { track ->
-                                when (track) {
-                                    is QuickHitTrack.LocalTrack -> onSongSelected(track.song, songs)
-                                    is QuickHitTrack.OnlineTrack -> onOnlineSongSelected(track.onlineSong, allOnlineQuickHits)
-                                }
-                            },
-                            onOptionsClick = { song -> selectedSongOptions = song },
-                            onSeeAllClick = { showAllQuickHitsSheet = true }
-                        )
-                    }
-                }
-
-                // 6. E. Discover by Category (Compact glowing mesh cards)
-                if (uiState.categories.isNotEmpty()) {
-                    item(key = "hometest_categories_section") {
-                        DiscoverCategorySection(
-                            categories = uiState.categories,
-                            onCategoryClick = { category ->
-                                selectedCategory = category
-                                coroutineScope.launch {
-                                    isCategoryLoading = true
-                                    val (onlineRes, localRes) = viewModel.fetchCategorySongs(category, songs)
-                                    categoryOnlineSongs = onlineRes
-                                    categoryLocalSongs = localRes
-                                    isCategoryLoading = false
-                                }
-                            },
-                            onSeeAllClick = { showAllCategoriesSheet = true }
-                        )
-                    }
-                }
-            }
-
-            // Dynamic Status Bar Scrim (Adaptive white in light mode, dark in dark mode)
-            if (scrimAlpha > 0f) {
-                val scrimColor = if (isDark) {
-                    if (MaterialTheme.colorScheme.background == Color.Black) Color.Black else Color(0xFF0F0E13)
-                } else {
-                    Color.White
-                }
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.TopCenter)
-                        .fillMaxWidth()
-                        .height(effectiveBarHeight + 16.dp)
-                        .graphicsLayer { alpha = scrimAlpha }
-                        .background(
-                            Brush.verticalGradient(
-                                0.0f to scrimColor.copy(alpha = 0.98f),
-                                0.68f to scrimColor.copy(alpha = 0.88f),
-                                1.0f to Color.Transparent
                             )
-                        )
-                )
+                        }
+                    }
+
+                    if (uiState.listenAgainColumns.isNotEmpty()) {
+                        item(key = "home_listen_again_section") {
+                            val allOnlineListenAgain = remember(uiState.listenAgainColumns) {
+                                uiState.listenAgainColumns.flatten().mapNotNull { (it as? QuickHitTrack.OnlineTrack)?.onlineSong }
+                            }
+                            ListenAgainSection(
+                                columns = uiState.listenAgainColumns,
+                                currentSongId = currentSongId,
+                                isPlaying = isPlaying,
+                                onTrackClick = { track ->
+                                    when (track) {
+                                        is QuickHitTrack.LocalTrack -> onSongSelected(track.song, songs)
+                                        is QuickHitTrack.OnlineTrack -> onOnlineSongSelected(
+                                            track.onlineSong,
+                                            allOnlineListenAgain.ifEmpty { listOf(track.onlineSong) }
+                                        )
+                                    }
+                                },
+                                onOptionsClick = { song -> selectedSongOptions = song }
+                            )
+                        }
+                    }
+
+                    if (uiState.artists.isNotEmpty()) {
+                        item(key = "home_artists_section") {
+                            ArtistsSection(
+                                artists = uiState.artists,
+                                onArtistClick = { artistItem ->
+                                    selectedArtist = artistItem
+                                    coroutineScope.launch {
+                                        isArtistLoading = true
+                                        val catalogue = viewModel.fetchArtistCatalogue(artistItem, songs)
+                                        artistOnlineSongs = catalogue.onlineSongs
+                                        artistLocalSongs = catalogue.localSongs
+                                        artistOnlineAlbums = catalogue.onlineAlbums
+                                        artistAudienceText = catalogue.audienceText
+                                        isArtistLoading = false
+                                    }
+                                },
+                                onSeeAllClick = { showAllArtistsSheet = true }
+                            )
+                        }
+                    }
+
+                    if (uiState.quickHitsColumns.isNotEmpty()) {
+                        item(key = "home_quick_hits_section") {
+                            val allOnlineQuickHits = remember(uiState.quickHitsColumns) {
+                                uiState.quickHitsColumns.flatten().mapNotNull { (it as? QuickHitTrack.OnlineTrack)?.onlineSong }
+                            }
+                            QuickHitsSection(
+                                columns = uiState.quickHitsColumns,
+                                currentSongId = currentSongId,
+                                isPlaying = isPlaying,
+                                onTrackClick = { track ->
+                                    when (track) {
+                                        is QuickHitTrack.LocalTrack -> onSongSelected(track.song, songs)
+                                        is QuickHitTrack.OnlineTrack -> onOnlineSongSelected(track.onlineSong, allOnlineQuickHits)
+                                    }
+                                },
+                                onOptionsClick = { song -> selectedSongOptions = song },
+                                onSeeAllClick = { showAllQuickHitsSheet = true }
+                            )
+                        }
+                    }
+
+                    if (uiState.categories.isNotEmpty()) {
+                        item(key = "home_categories_section") {
+                            DiscoverCategorySection(
+                                categories = uiState.categories,
+                                onCategoryClick = { category ->
+                                    selectedCategory = category
+                                    coroutineScope.launch {
+                                        isCategoryLoading = true
+                                        val (onlineRes, localRes) = viewModel.fetchCategorySongs(category, songs)
+                                        categoryOnlineSongs = onlineRes
+                                        categoryLocalSongs = localRes
+                                        isCategoryLoading = false
+                                    }
+                                },
+                                onSeeAllClick = { showAllCategoriesSheet = true }
+                            )
+                        }
+                    }
+                }
+
+                if (scrimAlpha > 0f) {
+                    val scrimColor = if (isDark) {
+                        if (MaterialTheme.colorScheme.background == Color.Black) Color.Black else Color(0xFF0F0E13)
+                    } else {
+                        Color.White
+                    }
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.TopCenter)
+                            .fillMaxWidth()
+                            .height(effectiveBarHeight + 16.dp)
+                            .graphicsLayer { alpha = scrimAlpha }
+                            .background(
+                                Brush.verticalGradient(
+                                    0.0f to scrimColor.copy(alpha = 0.98f),
+                                    0.68f to scrimColor.copy(alpha = 0.88f),
+                                    1.0f to Color.Transparent
+                                )
+                            )
+                    )
+                }
             }
         }
-    }
 
-        // Keep artist and online-release details inside the app content layer rather than a Dialog.
-        // This lets the global mini-player and bottom navigation remain visible above the page.
         if (selectedOnlineAlbum != null) {
             val curAlbum = selectedOnlineAlbum!!
             val isAlbumSaved = savedOnlineAlbums.any { it.id == curAlbum.id }
@@ -523,7 +486,7 @@ fun HomeTestScreen(
             val curArtist = selectedArtist!!
             val savedArtistEntry = savedOnlineArtists.firstOrNull {
                 (curArtist.artistId.isNotBlank() && it.id == curArtist.artistId) ||
-                    it.name.equals(curArtist.name, ignoreCase = true)
+                        it.name.equals(curArtist.name, ignoreCase = true)
             }
             val isArtistSaved = savedArtistEntry != null
             ArtistDetailSheet(
@@ -538,8 +501,6 @@ fun HomeTestScreen(
                     if (isArtistSaved) {
                         savedArtistEntry?.let { onRemoveSavedOnlineArtist?.invoke(it.id) }
                     } else {
-                        // Resolve a genuine provider artist ID even when the profile was
-                        // opened from a local-library artist card with local songs.
                         coroutineScope.launch {
                             val resolved = viewModel.resolveArtistForLibrary(curArtist)
                             if (resolved != null) {
