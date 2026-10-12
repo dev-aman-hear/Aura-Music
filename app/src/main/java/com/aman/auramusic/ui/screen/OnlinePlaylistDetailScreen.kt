@@ -75,6 +75,7 @@ fun OnlinePlaylistDetailScreen(
     isSavedInLibrary: Boolean = false,
     onToggleSaveToLibrary: (() -> Unit)? = null,
     onAddOnlineSongToPlaylist: ((OnlineSong) -> Unit)? = null,
+    showMenuButton: Boolean = true,
     modifier: Modifier = Modifier
 ) {
     BackHandler(onBack = onBack)
@@ -116,53 +117,55 @@ fun OnlinePlaylistDetailScreen(
                             )
                         }
 
-                        Box {
-                            IconButton(onClick = { showTopMenu = true }) {
-                                Icon(
-                                    imageVector = Icons.Default.MoreVert,
-                                    contentDescription = "Options",
-                                    tint = if (isDark) Color.White else Color.Black
-                                )
-                            }
-                            DropdownMenu(
-                                expanded = showTopMenu,
-                                onDismissRequest = { showTopMenu = false }
-                            ) {
-                                if (onToggleSaveToLibrary != null) {
+                        if (showMenuButton) {
+                            Box {
+                                IconButton(onClick = { showTopMenu = true }) {
+                                    Icon(
+                                        imageVector = Icons.Default.MoreVert,
+                                        contentDescription = "Options",
+                                        tint = if (isDark) Color.White else Color.Black
+                                    )
+                                }
+                                DropdownMenu(
+                                    expanded = showTopMenu,
+                                    onDismissRequest = { showTopMenu = false }
+                                ) {
+                                    if (onToggleSaveToLibrary != null) {
+                                        DropdownMenuItem(
+                                            text = { Text(if (isSavedInLibrary) "Remove from Library" else "Save to Library", fontWeight = FontWeight.SemiBold) },
+                                            leadingIcon = {
+                                                Icon(
+                                                    if (isSavedInLibrary) Icons.Default.BookmarkAdded else Icons.Default.BookmarkAdd,
+                                                    contentDescription = null,
+                                                    tint = if (isSavedInLibrary) AuraPrimary else (if (isDark) Color.White else Color.Black)
+                                                )
+                                            },
+                                            onClick = {
+                                                showTopMenu = false
+                                                onToggleSaveToLibrary()
+                                            }
+                                        )
+                                    }
                                     DropdownMenuItem(
-                                        text = { Text(if (isSavedInLibrary) "Remove from Library" else "Save to Library", fontWeight = FontWeight.SemiBold) },
-                                        leadingIcon = {
-                                            Icon(
-                                                if (isSavedInLibrary) Icons.Default.BookmarkAdded else Icons.Default.BookmarkAdd,
-                                                contentDescription = null,
-                                                tint = if (isSavedInLibrary) AuraPrimary else (if (isDark) Color.White else Color.Black)
-                                            )
-                                        },
+                                        text = { Text("Play All", fontWeight = FontWeight.SemiBold) },
+                                        leadingIcon = { Icon(Icons.Default.PlayArrow, contentDescription = null, tint = AuraPrimary) },
                                         onClick = {
                                             showTopMenu = false
-                                            onToggleSaveToLibrary()
+                                            if (songs.isNotEmpty()) onSongSelected(songs.first(), songs)
+                                        }
+                                    )
+                                    DropdownMenuItem(
+                                        text = { Text("Shuffle", fontWeight = FontWeight.SemiBold) },
+                                        leadingIcon = { Icon(Icons.Default.Shuffle, contentDescription = null) },
+                                        onClick = {
+                                            showTopMenu = false
+                                            if (songs.isNotEmpty()) {
+                                                val shuffled = songs.shuffled()
+                                                onSongSelected(shuffled.first(), shuffled)
+                                            }
                                         }
                                     )
                                 }
-                                DropdownMenuItem(
-                                    text = { Text("Play All", fontWeight = FontWeight.SemiBold) },
-                                    leadingIcon = { Icon(Icons.Default.PlayArrow, contentDescription = null, tint = AuraPrimary) },
-                                    onClick = {
-                                        showTopMenu = false
-                                        if (songs.isNotEmpty()) onSongSelected(songs.first(), songs)
-                                    }
-                                )
-                                DropdownMenuItem(
-                                    text = { Text("Shuffle", fontWeight = FontWeight.SemiBold) },
-                                    leadingIcon = { Icon(Icons.Default.Shuffle, contentDescription = null) },
-                                    onClick = {
-                                        showTopMenu = false
-                                        if (songs.isNotEmpty()) {
-                                            val shuffled = songs.shuffled()
-                                            onSongSelected(shuffled.first(), shuffled)
-                                        }
-                                    }
-                                )
                             }
                         }
                     }

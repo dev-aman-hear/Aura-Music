@@ -220,7 +220,8 @@ fun LibraryScreen(
             onSongSelected = { onSongSelected(it, albumSongs) },
             onToggleFavorite = onFavoriteToggle,
             onAddToPlaylist = onAddToPlaylist,
-            showShareButton = false
+            showShareButton = false,
+            showMenuButton = false
         )
         return
     }
@@ -259,7 +260,8 @@ fun LibraryScreen(
             onBack = { selectedOnlinePlaylist = null },
             onSongSelected = { song, queue ->
                 onOnlineSongSelected(song, queue)
-            }
+            },
+            showMenuButton = !isSavedAlbum
         )
         return
     }
