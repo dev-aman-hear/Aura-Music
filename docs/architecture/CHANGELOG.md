@@ -15,6 +15,7 @@ Records significant architectural evolution, design decisions, and system-level 
   - Added in-screen local album drill-down with back handling to preserve scroll position and avoid screen unmounting.
   - Removed top filter search bar from `LibraryScreen` to streamline library browsing.
   - Removed the 3-dot overflow menu button from album detail views in `CollectionDetailScreen` and `OnlinePlaylistDetailScreen` when viewing albums.
+  - Removed the 3-dot overflow menu button from the Explore section's "Album Mix" and other collections in `OnlineScreen`, and purged duplicate "Play All" and "Shuffle" actions from `OnlinePlaylistDetailScreen`'s overflow menu since primary controls already exist below the artwork.
 
 ---
 
