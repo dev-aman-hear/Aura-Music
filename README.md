@@ -29,19 +29,6 @@ A premium, modern Android music player built with Kotlin and Jetpack Compose. Fe
 * **Studio-Quality Artwork**: Never look at blurry album covers again. Every online track displays crystal-clear uncompressed artwork.
 * **Real-Time Synced Lyrics**: Powered by LRCLIB with line-by-line real-time tracking, karaoke glow, and ColorOS status bar live lyrics.
 
-### 💊 Dynamic Pill (System Overlay)
-* **Global Access**: Controls your music from any screen, even when outside the app.
-* **Orientation Smart**: Automatically hides in landscape mode to stay out of the way during games or videos.
-* **Fully Customizable**:
-  * **Positioning**: Move the pill to Left, Center, or Right.
-  * **Vertical Offset**: Fine-tune the height (0–64dp) to tuck it into your status bar or notch.
-  * **Scaling**: Adjust pill scale from 1.0x to 2.0x.
-* **Intuitive Controls**:
-  * Click artwork to expand full player.
-  * Click song info to toggle mini/expanded view.
-  * Direct playback controls (Play/Pause, Skip, Previous).
-  * Built-in live audio wave visualizer.
-
 ### 🎧 Local Music Management
 * **Format Versatility**: MP3, FLAC, WAV, M4A, ALAC, OGG, and OPUS.
 * **"Open With" Support**: Open and play audio files directly from any Android file manager.
