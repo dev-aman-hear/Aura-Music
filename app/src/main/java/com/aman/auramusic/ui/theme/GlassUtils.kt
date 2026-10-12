@@ -256,10 +256,10 @@ fun Modifier.liquidGlass(
     val tokens = LocalLiquidGlassTokens.current
     val effectiveShape = shape ?: tokens.surfaceShape
     val effectiveElevation = elevation ?: tokens.elevation(level)
-    val effectiveSheen = sheenAlpha ?: tokens.sheenAlpha(level)
+    val effectiveSheen = sheenAlpha ?: tokens.sheenAlpha(level, isDark = isDark)
     val effectiveBlur = blurRadius ?: tokens.blurRadius
-    val containerBrush = tokens.containerBrush(level, tint)
-    val borderStroke = tokens.borderStroke(level, tint, borderWidth)
+    val containerBrush = tokens.containerBrush(level, tint, isDark = isDark)
+    val borderStroke = tokens.borderStroke(level, tint, borderWidth, isDark = isDark)
 
     var mod: Modifier = this
 
@@ -299,6 +299,91 @@ fun Modifier.liquidGlass(
 
     // 6. Signature multi-stop illuminated top rim glass border
     mod = mod.border(borderStroke, effectiveShape)
+
+    return mod
+}
+
+/**
+ * iOS-style crystal-clear liquid glass modifier for buttons, badges, and player controls.
+ * Delivers authentic Apple-inspired glassy clarity with specular rim lighting and zero opaque white fill.
+ */
+@Composable
+fun Modifier.iosLiquidGlass(
+    shape: Shape = CircleShape,
+    tint: Color? = null,
+    borderWidth: Dp = 1.dp,
+    elevation: Dp = 6.dp,
+    sheenAlpha: Float = 0.22f
+): Modifier {
+    var mod: Modifier = this
+
+    if (elevation > 0.dp) {
+        mod = mod.shadow(
+            elevation = elevation,
+            shape = shape,
+            spotColor = Color.Black.copy(alpha = 0.45f),
+            ambientColor = Color.Black.copy(alpha = 0.25f)
+        )
+    }
+
+    mod = mod.clip(shape)
+
+    val backgroundBrush = if (tint != null) {
+        Brush.verticalGradient(
+            listOf(
+                tint.copy(alpha = 0.32f),
+                tint.copy(alpha = 0.14f),
+                Color.Black.copy(alpha = 0.22f)
+            )
+        )
+    } else {
+        Brush.verticalGradient(
+            listOf(
+                Color.White.copy(alpha = 0.15f),
+                Color.White.copy(alpha = 0.04f),
+                Color.Black.copy(alpha = 0.14f)
+            )
+        )
+    }
+    mod = mod.background(backgroundBrush)
+
+    if (sheenAlpha > 0f) {
+        mod = mod.drawBehind {
+            val h = size.height
+            drawRect(
+                brush = Brush.verticalGradient(
+                    colors = listOf(
+                        Color.White.copy(alpha = sheenAlpha),
+                        Color.White.copy(alpha = sheenAlpha * 0.25f),
+                        Color.Transparent
+                    ),
+                    startY = 0f,
+                    endY = h * 0.48f
+                )
+            )
+        }
+    }
+
+    val rimBrush = if (tint != null) {
+        Brush.verticalGradient(
+            listOf(
+                tint.copy(alpha = 0.70f),
+                Color.White.copy(alpha = 0.35f),
+                Color.White.copy(alpha = 0.08f),
+                Color.Black.copy(alpha = 0.25f)
+            )
+        )
+    } else {
+        Brush.verticalGradient(
+            listOf(
+                Color.White.copy(alpha = 0.42f),
+                Color.White.copy(alpha = 0.16f),
+                Color.White.copy(alpha = 0.05f),
+                Color.Black.copy(alpha = 0.22f)
+            )
+        )
+    }
+    mod = mod.border(BorderStroke(borderWidth, rimBrush), shape)
 
     return mod
 }

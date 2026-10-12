@@ -54,6 +54,7 @@ fun CollectionDetailScreen(
     onAddCollectionToPlaylist: (() -> Unit)? = null,
     onFavoriteCollection: (() -> Unit)? = null,
     showShareButton: Boolean = true,
+    showMenuButton: Boolean = true,
 ) {
     val context = LocalContext.current
     val isDark = isSystemInDarkTheme()

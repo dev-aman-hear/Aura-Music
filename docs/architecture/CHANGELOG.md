@@ -7,6 +7,16 @@ Records significant architectural evolution, design decisions, and system-level 
 ## [3.2.1] — 2026-10-12
 
 ### Changed
+- **Search Tab Filter & Artist/Album Resolution**:
+  - Removed redundant `Online` and `Local` buttons from search filter chips in [SearchScreen.kt](file:///c:/Users/AMAN/AndroidStudioProjects/AuraMusic/app/src/main/java/com/aman/auramusic/ui/screen/SearchScreen.kt), leaving clean `All`, `Songs`, `Artists`, `Albums` filters.
+  - Resolved online artist and album matching across JioSaavn and YouTube Music search catalog so searching an artist or album accurately populates `matchedArtists`, `matchedAlbums`, and their respective tracks.
+  - Fixed `Artists` and `Albums` filter views to present both entity cards and matching songs rather than empty blank lists.
+  - Enabled dynamic online catalogue resolution in [MainActivity.kt](file:///c:/Users/AMAN/AndroidStudioProjects/AuraMusic/app/src/main/java/com/aman/auramusic/MainActivity.kt) when clicking any artist or album from search results.
+- **Player Screen iOS Liquid Glass Controls**:
+  - Replaced opaque white button backgrounds across [PlayerScreen.kt](file:///c:/Users/AMAN/AndroidStudioProjects/AuraMusic/app/src/main/java/com/aman/auramusic/ui/screen/PlayerScreen.kt) with crystal-clear iOS-style liquid glass (`iosLiquidGlass`).
+  - Added [iosLiquidGlass](file:///c:/Users/AMAN/AndroidStudioProjects/AuraMusic/app/src/main/java/com/aman/auramusic/ui/theme/GlassUtils.kt) modifier with crystalline translucent gradient fills, subtle ambient shadow, specular curved glare reflections, and multi-stop illuminated top-rim borders.
+  - Updated playback controls (Previous, central Play/Pause orb, Next), Favorite and Options buttons, audio quality Lossless capsule, bottom Lyrics/Queue capsule, and mini player header controls to transparent liquid glass with crisp contrast against dark album art backdrops.
+  - Fixed theme resolution in [LiquidGlassTokens.kt](file:///c:/Users/AMAN/AndroidStudioProjects/AuraMusic/app/src/main/java/com/aman/auramusic/ui/theme/LiquidGlassTokens.kt) by allowing `isDark` overrides and refining translucency values to prevent unintended opaque white fills in light mode.
 - **Unified Artist Detail Experience**:
   - Unified local/offline artist detail screen with online `ArtistDetailSheet`, showing hero banner, prominent play button, top tracks, and albums.
   - Removed audience number text from saved online artist cards in `LibraryScreen`.

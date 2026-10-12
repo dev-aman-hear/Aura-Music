@@ -150,6 +150,7 @@ import com.aman.auramusic.ui.screen.CollectionDetailScreen
 import com.aman.auramusic.ui.screen.hometest.ArtistDetailSheet
 import com.aman.auramusic.ui.screen.hometest.ArtistItem
 import com.aman.auramusic.online.network.repository.YouTubeArtistRepositoryImpl
+import com.aman.auramusic.online.network.repository.OnlineMusicRepository
 import com.aman.auramusic.util.ArtistArtworkCache
 import com.aman.auramusic.online.model.SavedOnlineArtist
 import com.aman.auramusic.online.model.AudioSource
@@ -639,7 +640,7 @@ fun MusicScreen(musicViewModel: MusicViewModel) {
                         }
                         selectedAlbumName != null -> {
                             val isChart = selectedAlbumName!!.startsWith("Top")
-                            val albumSongs = when (selectedAlbumName) {
+                            val localAlbumSongs = when (selectedAlbumName) {
                                 "Top 100: Global" -> songs.sortedByDescending { it.dateAdded }.take(100)
                                 "Top 100: India" -> {
                                     val ind = songs.filter { song ->
@@ -650,23 +651,60 @@ fun MusicScreen(musicViewModel: MusicViewModel) {
                                 }
                                 "Top 25: Mumbai" -> songs.take(25)
                                 "Top 25: Delhi" -> songs.reversed().take(25)
-                                else -> songs.filter { it.album == selectedAlbumName }
+                                else -> songs.filter { it.album.equals(selectedAlbumName, ignoreCase = true) }
                             }
+
+                            var onlineAlbumSongs by remember(selectedAlbumName) { mutableStateOf<List<OnlineSong>>(emptyList()) }
+                            var isAlbumLoading by remember(selectedAlbumName) { mutableStateOf(false) }
+
+                            LaunchedEffect(selectedAlbumName) {
+                                if (localAlbumSongs.isEmpty()) {
+                                    isAlbumLoading = true
+                                    try {
+                                        val repo = OnlineMusicRepository()
+                                        onlineAlbumSongs = repo.search(selectedAlbumName!!, AudioSource.ALL)
+                                    } catch (_: Exception) {
+                                        onlineAlbumSongs = emptyList()
+                                    } finally {
+                                        isAlbumLoading = false
+                                    }
+                                }
+                            }
+
+                            val convertedOnlineSongs = remember(onlineAlbumSongs) {
+                                onlineAlbumSongs.map { it.toSong() }
+                            }
+                            val displaySongs = if (localAlbumSongs.isNotEmpty()) localAlbumSongs else convertedOnlineSongs
+
                             CollectionDetailScreen(
                                 title = selectedAlbumName!!,
-                                subtitle = if (isChart) "Apple Music Chart • ${albumSongs.size} Songs" else "Album • ${albumSongs.firstOrNull()?.artist ?: "Unknown"}",
-                                songs = albumSongs,
+                                subtitle = if (isChart) "Apple Music Chart • ${displaySongs.size} Songs" else "Album • ${displaySongs.firstOrNull()?.artist ?: "Various Artists"}",
+                                songs = displaySongs,
                                 favoriteIds = favoriteIds,
                                 currentSongId = playerViewModel.currentSong?.id,
                                 onBack = { selectedAlbumName = null },
-                                onSongSelected = { playSong(it, albumSongs) },
+                                onSongSelected = { song ->
+                                    val onlineMatch = onlineAlbumSongs.find { it.id == song.id.toString() || it.title == song.title }
+                                    if (onlineMatch != null) {
+                                        playOnlineSong(onlineMatch, onlineAlbumSongs)
+                                    } else {
+                                        playSong(song, displaySongs)
+                                    }
+                                },
                                 onToggleFavorite = { song -> musicViewModel.toggleFavorite(song.id, song.id !in favoriteIds) },
                                 onAddToPlaylist = { songToAddToPlaylist = it },
                                 onAddToQueue = { playerViewModel.addToQueue(it) },
-                                onAddCollectionToQueue = { playerViewModel.addToQueue(albumSongs) },
-                                onAddCollectionToPlaylist = { songsToAddToPlaylist = albumSongs },
-                                onFavoriteCollection = { albumSongs.forEach { musicViewModel.toggleFavorite(it.id, true) } },
-                                showShareButton = false
+                                onAddCollectionToQueue = {
+                                    if (localAlbumSongs.isNotEmpty()) {
+                                        playerViewModel.addToQueue(localAlbumSongs)
+                                    } else {
+                                        playerViewModel.addToQueue(displaySongs)
+                                    }
+                                },
+                                onAddCollectionToPlaylist = { songsToAddToPlaylist = displaySongs },
+                                onFavoriteCollection = { displaySongs.forEach { musicViewModel.toggleFavorite(it.id, true) } },
+                                showShareButton = false,
+                                showMenuButton = false
                             )
                         }
                         selectedArtistName != null -> {
@@ -680,9 +718,26 @@ fun MusicScreen(musicViewModel: MusicViewModel) {
                                 it.name.equals(artistName, ignoreCase = true)
                             }
                             val isArtistSaved = savedArtistEntry != null
-                            val portrait = remember(artistName, artistSongs) {
+
+                            var artistOnlineSongs by remember(artistName) { mutableStateOf<List<OnlineSong>>(emptyList()) }
+                            var isArtistLoading by remember(artistName) { mutableStateOf(false) }
+
+                            LaunchedEffect(artistName) {
+                                isArtistLoading = true
+                                try {
+                                    val repo = OnlineMusicRepository()
+                                    artistOnlineSongs = repo.search(artistName, AudioSource.ALL)
+                                } catch (_: Exception) {
+                                    artistOnlineSongs = emptyList()
+                                } finally {
+                                    isArtistLoading = false
+                                }
+                            }
+
+                            val portrait = remember(artistName, artistSongs, artistOnlineSongs) {
                                 ArtistArtworkCache.get(artistName)
                                     ?: YouTubeArtistRepositoryImpl.getCachedPortrait(artistName)
+                                    ?: artistOnlineSongs.firstOrNull()?.artworkUrl
                                     ?: artistSongs.firstOrNull()?.artworkUri
                             }
                             val audience = remember(artistName) {
@@ -693,13 +748,13 @@ fun MusicScreen(musicViewModel: MusicViewModel) {
                                     name = artistName,
                                     songCountText = audience.orEmpty(),
                                     artworkModel = portrait,
-                                    isOnline = false,
+                                    isOnline = artistSongs.isEmpty(),
                                     artistId = savedArtistEntry?.id.orEmpty()
                                 ),
-                                onlineSongs = emptyList(),
+                                onlineSongs = artistOnlineSongs,
                                 localSongs = artistSongs,
                                 onlineAlbums = emptyList(),
-                                isLoading = false,
+                                isLoading = isArtistLoading,
                                 isSavedInLibrary = isArtistSaved,
                                 audienceText = audience,
                                 onToggleSaveToLibrary = {
@@ -723,6 +778,8 @@ fun MusicScreen(musicViewModel: MusicViewModel) {
                                 onPlayAll = {
                                     if (artistSongs.isNotEmpty()) {
                                         playSong(artistSongs.first(), artistSongs)
+                                    } else if (artistOnlineSongs.isNotEmpty()) {
+                                        playOnlineSong(artistOnlineSongs.first(), artistOnlineSongs)
                                     }
                                     selectedArtistName = null
                                 },
@@ -730,6 +787,9 @@ fun MusicScreen(musicViewModel: MusicViewModel) {
                                     if (artistSongs.isNotEmpty()) {
                                         val shuffled = artistSongs.shuffled()
                                         playSong(shuffled.first(), shuffled)
+                                    } else if (artistOnlineSongs.isNotEmpty()) {
+                                        val shuffled = artistOnlineSongs.shuffled()
+                                        playOnlineSong(shuffled.first(), shuffled)
                                     }
                                     selectedArtistName = null
                                 }
