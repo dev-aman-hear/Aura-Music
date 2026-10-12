@@ -499,57 +499,7 @@ fun LibraryScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.height(14.dp))
-
-            // Quick Library Filter Search Box with Frosted Glass
-            OutlinedTextField(
-                value = query,
-                onValueChange = onQueryChange,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .frostedGlass(
-                        shape = RoundedCornerShape(18.dp),
-                        isDark = isDark,
-                        elevation = if (isDark) 6.dp else 2.dp,
-                        borderWidth = 1.1.dp,
-                        sheenAlpha = if (isDark) 0.16f else 0.35f
-                    ),
-                placeholder = {
-                    Text(
-                        "Filter ${selectedTab.label.lowercase()} in your collection...",
-                        color = if (isDark) Color.White.copy(alpha = 0.45f) else Color.Black.copy(alpha = 0.45f),
-                        fontSize = 14.sp
-                    )
-                },
-                leadingIcon = {
-                    Icon(
-                        imageVector = Icons.Default.Search,
-                        contentDescription = "Filter",
-                        tint = if (isDark) Color.White.copy(alpha = 0.6f) else Color.Black.copy(alpha = 0.5f)
-                    )
-                },
-                trailingIcon = {
-                    if (query.isNotBlank()) {
-                        IconButton(onClick = { onQueryChange("") }) {
-                            Icon(
-                                imageVector = Icons.Default.Close,
-                                contentDescription = "Clear",
-                                tint = textColor
-                            )
-                        }
-                    }
-                },
-                shape = RoundedCornerShape(18.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = Color.Transparent,
-                    unfocusedBorderColor = Color.Transparent,
-                    focusedContainerColor = Color.Transparent,
-                    unfocusedContainerColor = Color.Transparent
-                ),
-                singleLine = true
-            )
-
-            Spacer(modifier = Modifier.height(14.dp))
+            Spacer(modifier = Modifier.height(16.dp))
 
             // Segmented Category Tabs with Frosted Glass Pills (Songs | Albums | Artists | Playlists)
             Row(
