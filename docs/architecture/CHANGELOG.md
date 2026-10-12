@@ -4,6 +4,18 @@ Records significant architectural evolution, design decisions, and system-level 
 
 ---
 
+## [3.2.1] — 2026-10-12
+
+### Changed
+- **Unified Artist Detail Experience**:
+  - Unified local/offline artist detail screen with online `ArtistDetailSheet`, showing hero banner, prominent play button, top tracks, and albums.
+  - Removed audience number text from saved online artist cards in `LibraryScreen`.
+- **Library Navigation State Persistence**:
+  - Converted `LibraryScreen.selectedTab` to `rememberSaveable` with enum Saver to maintain active tab (Albums, Artists, Playlists) across drilldown navigation and back presses.
+  - Added in-screen local album drill-down with back handling to preserve scroll position and avoid screen unmounting.
+
+---
+
 ## [3.2.0] — 2026-10-10
 
 ### Added

@@ -39,7 +39,7 @@ import coil.compose.AsyncImage
 @Composable
 fun ArtistCard(
     name: String,
-    songCountText: String,
+    songCountText: String? = null,
     artworkModel: Any?,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
@@ -117,16 +117,18 @@ fun ArtistCard(
             textAlign = TextAlign.Center
         )
 
-        Spacer(modifier = Modifier.height(2.dp))
+        if (!songCountText.isNullOrBlank()) {
+            Spacer(modifier = Modifier.height(2.dp))
 
-        Text(
-            text = songCountText,
-            fontSize = 11.5.sp,
-            fontWeight = FontWeight.Normal,
-            color = subtitleColor,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            textAlign = TextAlign.Center
-        )
+            Text(
+                text = songCountText,
+                fontSize = 11.5.sp,
+                fontWeight = FontWeight.Normal,
+                color = subtitleColor,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                textAlign = TextAlign.Center
+            )
+        }
     }
 }

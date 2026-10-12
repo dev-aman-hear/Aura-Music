@@ -1106,6 +1106,7 @@ fun ArtistDetailSheet(
                                 Spacer(modifier = Modifier.height(5.dp))
                                 val effectiveAudience = audienceText?.takeIf { it.isNotBlank() && !it.equals("YouTube Music", ignoreCase = true) }
                                     ?: artist.songCountText.takeIf { it.isNotBlank() && !it.equals("YouTube Music", ignoreCase = true) && (artist.isOnline || it.contains("audience", ignoreCase = true) || it.contains("subscribers", ignoreCase = true)) }
+                                    ?: if (localSongs.isNotEmpty()) "${localSongs.size} songs" else null
 
                                 if (!effectiveAudience.isNullOrBlank()) {
                                     val formattedAudience = if (!effectiveAudience.startsWith("Artist", ignoreCase = true)) {
@@ -1202,11 +1203,16 @@ fun ArtistDetailSheet(
                     if (localSongs.isNotEmpty()) {
                         item(key = "artist_local_heading") {
                             Text(
-                                text = "In your library",
+                                text = if (onlineSongs.isEmpty()) "Top songs" else "In your library",
                                 color = titleColor,
                                 fontSize = 23.sp,
                                 fontWeight = FontWeight.Bold,
-                                modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 24.dp, bottom = 8.dp)
+                                modifier = Modifier.padding(
+                                    start = 20.dp,
+                                    end = 20.dp,
+                                    top = if (onlineSongs.isEmpty()) 10.dp else 24.dp,
+                                    bottom = 8.dp
+                                )
                             )
                         }
                         items(localSongs, key = { "local_artist_track_${it.id}" }) { song ->
@@ -1221,7 +1227,12 @@ fun ArtistDetailSheet(
                                 Column(modifier = Modifier.weight(1f).padding(start = 12.dp, end = 8.dp)) {
                                     Text(song.title, color = titleColor, fontSize = 14.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                     Spacer(modifier = Modifier.height(3.dp))
-                                    Text(song.album, color = secondaryColor, fontSize = 11.5.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                    val subtitleText = listOf(song.artist, song.album)
+                                        .filter { it.isNotBlank() && !it.equals("unknown", true) }
+                                        .distinct()
+                                        .joinToString(" · ")
+                                        .ifBlank { song.artist }
+                                    Text(subtitleText, color = secondaryColor, fontSize = 11.5.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                 }
                                 ClearGlassPlayButton(
                                     onClick = { onPlaySong(song, localSongs) },
