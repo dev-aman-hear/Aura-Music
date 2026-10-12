@@ -1,4 +1,4 @@
-package com.aman.auramusic.ui.screen.hometest
+package com.aman.auramusic.ui.screen.home
 
 import android.app.Application
 import androidx.compose.ui.graphics.Color
@@ -88,7 +88,7 @@ data class CategoryDiscoverItem(
     val searchQuery: String
 )
 
-data class HomeTestUiState(
+data class HomeUiState(
     val isLoading: Boolean = true,
     val isRefreshing: Boolean = false,
     val isOffline: Boolean = false,
@@ -106,7 +106,7 @@ data class HomeTestUiState(
 )
 
 @HiltViewModel
-class HomeTestViewModel @Inject constructor(
+class HomeViewModel @Inject constructor(
     application: Application,
     private val onlineRepository: OnlineMusicRepository,
     private val youtubeArtistRepository: com.aman.auramusic.online.network.repository.YouTubeArtistRepository
@@ -126,8 +126,9 @@ class HomeTestViewModel @Inject constructor(
     private fun writeCachedList(key: String, value: Any) {
         feedCachePrefs.edit().putString(key, Gson().toJson(value)).apply()
     }
-    private val _uiState = MutableStateFlow(HomeTestUiState())
-    val uiState: StateFlow<HomeTestUiState> = _uiState.asStateFlow()
+
+    private val _uiState = MutableStateFlow(HomeUiState())
+    val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
 
     private var cachedTrendingOnline = emptyList<OnlineSong>()
     private var cachedQuickHitsOnline = emptyList<OnlineSong>()
@@ -274,7 +275,6 @@ class HomeTestViewModel @Inject constructor(
 
             val deduplicator = SectionDeduplicator()
 
-            // Immediately populate artists and quick hits from local tracks and cache so UI is instant
             val initialArtists = buildArtistList(localSongs, cachedDiscoveredArtists)
             val initialQuickHits = buildQuickHitsFeed(
                 localSongs = recommendationLocalSongs,
@@ -321,55 +321,52 @@ class HomeTestViewModel @Inject constructor(
 
             if (!cacheUsable) {
                 try {
-                // Independent pipelines for Trending Now, Quick Hits, Playlists, and Artists
-                withContext(Dispatchers.IO) {
-                    val playlistsDeferred = async {
-                        try {
-                            onlineRepository.getCuratedPlaylists(AudioSource.ALL)
-                        } catch (_: Exception) {
-                            emptyList()
-                        }
-                    }
-
-                    val trendingDeferred = async {
-                        try {
-                            onlineRepository.getTrending(AudioSource.YOUTUBE)
-                        } catch (_: Exception) {
+                    withContext(Dispatchers.IO) {
+                        val playlistsDeferred = async {
                             try {
-                                onlineRepository.getTrending(AudioSource.JIOSAAVN)
+                                onlineRepository.getCuratedPlaylists(AudioSource.ALL)
                             } catch (_: Exception) {
                                 emptyList()
                             }
                         }
-                    }
 
-                    val quickHitsDeferred = async {
-                        try {
-                            onlineRepository.getQuickHits(AudioSource.ALL)
-                        } catch (_: Exception) {
-                            emptyList()
+                        val trendingDeferred = async {
+                            try {
+                                onlineRepository.getTrending(AudioSource.YOUTUBE)
+                            } catch (_: Exception) {
+                                try {
+                                    onlineRepository.getTrending(AudioSource.JIOSAAVN)
+                                } catch (_: Exception) {
+                                    emptyList()
+                                }
+                            }
                         }
-                    }
 
-                    val ytArtistsDeferred = async {
-                        try {
-                            youtubeArtistRepository.getTrendingArtists()
-                        } catch (_: Exception) {
-                            emptyList()
+                        val quickHitsDeferred = async {
+                            try {
+                                onlineRepository.getQuickHits(AudioSource.ALL)
+                            } catch (_: Exception) {
+                                emptyList()
+                            }
                         }
+
+                        val ytArtistsDeferred = async {
+                            try {
+                                youtubeArtistRepository.getTrendingArtists()
+                            } catch (_: Exception) {
+                                emptyList()
+                            }
+                        }
+
+                        curatedPlaylists = playlistsDeferred.await()
+                        rawTrendingOnline = trendingDeferred.await()
+                        rawQuickHitsOnline = quickHitsDeferred.await()
+                        onlineArtistsDiscovered = ytArtistsDeferred.await()
                     }
-
-                    curatedPlaylists = playlistsDeferred.await()
-                    rawTrendingOnline = trendingDeferred.await()
-                    rawQuickHitsOnline = quickHitsDeferred.await()
-                    onlineArtistsDiscovered = ytArtistsDeferred.await()
-                }
-
                 } catch (e: Exception) {
                     isOfflineDetected = true
                 }
 
-                // If network fetch failed or returned empty, preserve usable cached content
                 if (rawTrendingOnline.isEmpty() && rawQuickHitsOnline.isEmpty() &&
                     curatedPlaylists.isEmpty() && onlineArtistsDiscovered.isEmpty()) {
                     rawTrendingOnline = readCachedList("trending")
@@ -382,7 +379,6 @@ class HomeTestViewModel @Inject constructor(
                 }
             }
 
-            // 1. Resolve Daily Featured Item (Refreshes once per day)
             if (featured == null) {
                 featured = resolveDailyFeatured(
                     dayKey = currentDayKey,
@@ -394,7 +390,6 @@ class HomeTestViewModel @Inject constructor(
                 }
             }
 
-            // 2. Fetch tracks belonging to Daily Featured Playlist / Album
             if (!cacheUsable && featured?.onlinePlaylistId != null && featuredTracks.isEmpty()) {
                 val plObj = curatedPlaylists.find { it.id == featured.onlinePlaylistId }
                     ?: OnlinePlaylist(id = featured.onlinePlaylistId!!, title = featured.title, source = AudioSource.ALL)
@@ -408,17 +403,14 @@ class HomeTestViewModel @Inject constructor(
                 }
             }
 
-            // 3. Mutual Exclusivity Deduplication Barrier
             deduplicator.clear()
 
-            // Allocate Daily Featured pool first
             val cleanFeaturedTracks = deduplicator.allocateAll(ExplicitTitleFilter.filterOnline(featuredTracks))
             if (featured?.albumName != null) {
                 val albumSongs = localSongs.filter { it.album.equals(featured.albumName, ignoreCase = true) }
                 deduplicator.allocateAllLocal(albumSongs)
             }
 
-            // Allocate Trending Songs (guaranteed zero overlap with Daily Featured)
             var cleanTrending = ExplicitTitleFilter.filterOnline(rawTrendingOnline).filter { deduplicator.allocate(it) }
             if (!cacheUsable && cleanTrending.size < 10) {
                 withContext(Dispatchers.IO) {
@@ -441,7 +433,6 @@ class HomeTestViewModel @Inject constructor(
                 writeCachedList("featured_tracks", featuredTracks)
             }
 
-            // Map Trending Songs with matching local tracks
             val trendingItems = cleanTrending.map { onlineSong ->
                 val match = localSongs.find { local ->
                     local.title.trim().equals(onlineSong.title.trim(), ignoreCase = true) ||
@@ -455,10 +446,8 @@ class HomeTestViewModel @Inject constructor(
                 )
             }
 
-            // 4. Structure Artists: Extract single artists and balance evenly
             val artistsList = buildArtistList(localSongs, onlineArtistsDiscovered)
 
-            // 5. Quick Hits: Interleave clean offline and clean online hits (guaranteed zero overlap with Daily Featured & Trending)
             val cleanQuickHitsOnline = ExplicitTitleFilter.filterOnline(rawQuickHitsOnline).filter { deduplicator.allocate(it) }
             val quickHitsColumns = buildQuickHitsFeed(
                 localSongs = recommendationLocalSongs,
@@ -517,26 +506,13 @@ class HomeTestViewModel @Inject constructor(
         resolveMissingArtistPortraits(artistsList)
     }
 
-    /**
-     * Splits composite strings into strictly individual sanitized solo artist names.
-     * E.g. "Anirudh Ravichander, Kaala Bhairava" -> ["Anirudh Ravichander", "Kaala Bhairava"]
-     * "Taylor Swift feat. Post Malone" -> ["Taylor Swift", "Post Malone"]
-     * "The Weeknd - Topic" -> ["The Weeknd"]
-     */
     private fun extractSingleArtistNames(raw: String): List<String> =
         com.aman.auramusic.util.ArtistHelper.extractArtistNames(raw)
 
-    /**
-     * Builds artist list guaranteeing strictly ONE single artist per card and evenly balancing
-     * local library artists with online YouTube Music artists (1:1 interleaved distribution).
-     */
     private fun buildArtistList(
         localSongs: List<Song>,
         discoveredOnline: List<com.aman.auramusic.online.network.repository.YouTubeArtist>
     ): List<ArtistItem> {
-        // 1. Split every local song's artist credit into individual artist names.
-        // Group case-insensitively so capitalization/spacing variants do not create
-        // duplicate cards, while retaining the first readable display name.
         val localArtistMap = linkedMapOf<String, Pair<String, MutableList<Song>>>()
         fun localArtistKey(value: String): String =
             value.trim().replace(Regex("\\s+"), " ").lowercase(java.util.Locale.ROOT)
@@ -563,15 +539,12 @@ class HomeTestViewModel @Inject constructor(
                 ArtistItem(
                     name = artistName,
                     songCountText = "${songList.size} songs",
-                    // Artist portraits come from YouTube Music artist metadata only.
-                    // Never substitute a local track's album artwork for an artist photo.
                     artworkModel = portraitUrl,
                     isOnline = false,
                     artistId = "local_${artistName.hashCode()}"
                 )
             }
 
-        // 2. Format online YouTube artists (ensuring strictly 1 single artist per item)
         val onlineArtists = discoveredOnline.mapNotNull { ytArtist ->
             val clean = extractSingleArtistNames(ytArtist.name).firstOrNull()
             if (!clean.isNullOrBlank()) {
@@ -585,7 +558,6 @@ class HomeTestViewModel @Inject constructor(
             } else null
         }
 
-        // 3. Evenly balance local and online artists (1:1 interleaved)
         val seen = mutableSetOf<String>()
         val balanced = mutableListOf<ArtistItem>()
         var localIdx = 0
@@ -593,7 +565,6 @@ class HomeTestViewModel @Inject constructor(
         val maxTotal = 24
 
         while (balanced.size < maxTotal && (localIdx < localArtists.size || onlineIdx < onlineArtists.size)) {
-            // Pick 1 local artist
             while (localIdx < localArtists.size) {
                 val candidate = localArtists[localIdx++]
                 if (seen.add(candidate.name.lowercase())) {
@@ -602,7 +573,6 @@ class HomeTestViewModel @Inject constructor(
                 }
             }
 
-            // Pick 1 online YouTube artist
             while (onlineIdx < onlineArtists.size && balanced.size < maxTotal) {
                 val candidate = onlineArtists[onlineIdx++]
                 if (seen.add(candidate.name.lowercase())) {
@@ -612,7 +582,6 @@ class HomeTestViewModel @Inject constructor(
             }
         }
 
-        // Fill remaining if one pool is depleted
         while (balanced.size < maxTotal && localIdx < localArtists.size) {
             val candidate = localArtists[localIdx++]
             if (seen.add(candidate.name.lowercase())) balanced.add(candidate)
@@ -625,10 +594,6 @@ class HomeTestViewModel @Inject constructor(
         return balanced
     }
 
-    /**
-     * Interleaves both offline (local) and online songs (quick hits).
-     * Chunked into columns of 3 so the user can drag horizontally from right to left smoothly.
-     */
     private fun buildQuickHitsFeed(
         localSongs: List<Song>,
         history: List<PlaybackHistoryEntry>,
@@ -663,7 +628,6 @@ class HomeTestViewModel @Inject constructor(
         var localIdx = 0
         var onlineIdx = 0
 
-        // Build a generous horizontal feed of up to 24-30 tracks (8-10 columns)
         val targetCount = if (localTracks.isEmpty() && formattedOnlineTracks.isEmpty()) {
             0
         } else {
@@ -741,7 +705,6 @@ class HomeTestViewModel @Inject constructor(
         category: CategoryDiscoverItem,
         localSongs: List<Song>
     ): Pair<List<OnlineSong>, List<Song>> = withContext(Dispatchers.IO) {
-        // Search with the category's own query and preserve source identity/order.
         val onlineResults = try {
             val raw = onlineRepository.search(category.searchQuery, AudioSource.ALL)
             ExplicitTitleFilter.filterOnline(raw)
@@ -751,8 +714,6 @@ class HomeTestViewModel @Inject constructor(
             emptyList()
         }
 
-        // Local genre is inferred conservatively from metadata keywords. Do not label
-        // unrelated local songs as category hits just to fill the list.
         val keywords = when (category.id.lowercase()) {
             "pop" -> listOf("pop", "chart", "dance", "radio", "singer", "love", "weeknd", "swift", "bieber", "lipa", "ariana")
             "hiphop" -> listOf("hip hop", "hip-hop", "rap", "hiphop", "trap", "drill", "snoop", "eminem", "drake", "kendrick", "tupac", "50 cent")
@@ -779,9 +740,6 @@ class HomeTestViewModel @Inject constructor(
         Pair(onlineResults, localFiltered)
     }
 
-    /**
-     * Searches for artists across local single artists and YouTube Artist Cloud.
-     */
     fun searchArtists(query: String, localSongs: List<Song>) {
         val q = query.trim()
         _uiState.value = _uiState.value.copy(artistSearchQuery = q)
@@ -801,7 +759,6 @@ class HomeTestViewModel @Inject constructor(
                 emptyList()
             }
 
-            // Local single artists matching query
             val localMatching = localSongs.flatMap { extractSingleArtistNames(it.artist) }
                 .distinctBy { it.lowercase() }
                 .filter { it.contains(q, ignoreCase = true) }
@@ -842,10 +799,6 @@ class HomeTestViewModel @Inject constructor(
         }
     }
 
-    /**
-     * Resolves genuine artist catalogue (tracks and albums) from YouTube Music
-     * while preserving local library tracks for the selected artist.
-     */
     suspend fun fetchArtistCatalogue(
         artist: ArtistItem,
         localSongs: List<Song>
@@ -858,9 +811,6 @@ class HomeTestViewModel @Inject constructor(
             }
         }.distinctBy { it.id }
 
-        // Prefer the exact artist browse ID already attached to the YouTube Music card.
-        // For local-only artists, resolve a genuine artist entity first; never use a broad
-        // "$name songs" search that can fill the page with unrelated uploads.
         val resolvedBrowseId = if (artist.isOnline &&
             artist.artistId.isNotBlank() &&
             !artist.artistId.startsWith("local_") &&
@@ -868,13 +818,11 @@ class HomeTestViewModel @Inject constructor(
         ) {
             artist.artistId
         } else {
-            // 1. Reuse cached YouTube Music artist metadata when available
             val cached = localArtistMetadataCache[normalizeArtistComparable(artistName)]
                 ?: cachedDiscoveredArtists.firstOrNull { matchesArtistName(it.name, artistName) }
             if (cached != null && cached.id.isNotBlank() && !cached.id.startsWith("local_") && !cached.id.startsWith("yt_artist_")) {
                 cached.id
             } else {
-                // 2. Otherwise, resolve a genuine artist entity matching the requested artist
                 try {
                     val found = youtubeArtistRepository.searchArtists(artistName)
                         .firstOrNull { matchesArtistName(it.name, artistName) }
@@ -912,10 +860,6 @@ class HomeTestViewModel @Inject constructor(
         )
     }
 
-    /**
-     * Resolve a genuine YouTube Music artist entity for the Save to Library action.
-     * Local songs are not a prerequisite for saving an artist.
-     */
     suspend fun resolveArtistForLibrary(artist: ArtistItem): com.aman.auramusic.online.model.SavedOnlineArtist? =
         withContext(Dispatchers.IO) {
             val name = artist.name.trim()
@@ -978,10 +922,6 @@ class HomeTestViewModel @Inject constructor(
         }
     }
 
-    /**
-     * Asynchronously resolves high-fidelity YouTube Music artist portraits for local library artists
-     * whose profile pictures are not yet cached or discovered in the global trending artist set.
-     */
     private fun resolveMissingArtistPortraits(currentArtists: List<ArtistItem>) {
         val missing = currentArtists.filter { !it.isOnline && it.artworkModel == null }
         if (missing.isEmpty()) return
@@ -993,8 +933,6 @@ class HomeTestViewModel @Inject constructor(
 
                 val artistName = artist.name.trim()
                 val searchQuery = artistName
-                android.util.Log.d("AuraPlaybackDebug", "Local artist name extracted: $artistName")
-                android.util.Log.d("AuraPlaybackDebug", "Search query used: $searchQuery")
 
                 try {
                     val results = youtubeArtistRepository.searchArtists(searchQuery)
@@ -1003,12 +941,8 @@ class HomeTestViewModel @Inject constructor(
                     }
 
                     if (entity != null) {
-                        android.util.Log.d("AuraPlaybackDebug", "Whether an artist entity was found: true")
-                        android.util.Log.d("AuraPlaybackDebug", "Extracted artist ID: ${entity.id}")
-
                         val profileUrl = entity.profileImageUrl?.takeIf { it.isNotBlank() }
                         if (profileUrl != null) {
-                            android.util.Log.d("AuraPlaybackDebug", "Whether a profile image URL was found: true")
                             localArtistMetadataCache[key] = entity
                             cachedDiscoveredArtists = (cachedDiscoveredArtists + entity).distinctBy { it.id }
                             com.aman.auramusic.util.ArtistArtworkCache.put(getApplication(), artistName, profileUrl)
@@ -1024,19 +958,10 @@ class HomeTestViewModel @Inject constructor(
                                     }
                                 )
                             }
-                        } else {
-                            android.util.Log.d("AuraPlaybackDebug", "Whether a profile image URL was found: false")
-                            android.util.Log.d("AuraPlaybackDebug", "Why the lookup failed, if applicable: YouTube Music artist entity has no profile image thumbnail")
                         }
-                    } else {
-                        android.util.Log.d("AuraPlaybackDebug", "Whether an artist entity was found: false")
-                        android.util.Log.d("AuraPlaybackDebug", "Extracted artist ID: None")
-                        android.util.Log.d("AuraPlaybackDebug", "Whether a profile image URL was found: false")
-                        android.util.Log.d("AuraPlaybackDebug", "Why the lookup failed, if applicable: No matching artist entity returned from YouTube Music search")
                     }
                 } catch (e: Exception) {
-                    if (e is kotlinx.coroutines.CancellationException) throw e
-                    android.util.Log.d("AuraPlaybackDebug", "Why the lookup failed, if applicable: Network or parsing failure: ${e.message}")
+                    if (e is CancellationException) throw e
                 }
             }
         }

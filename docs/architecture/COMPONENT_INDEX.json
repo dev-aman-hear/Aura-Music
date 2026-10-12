@@ -880,7 +880,7 @@
       "name": "Home Screen",
       "type": "screen",
       "paths": [
-        "app/src/main/java/com/aman/auramusic/ui/screen/HomeScreen.kt"
+        "app/src/main/java/com/aman/auramusic/ui/screen/home/HomeScreen.kt"
       ],
       "responsibility": "Home recommendation tab presenting quick picks, recently played songs, favorite tracks, and personalized playlist rails.",
       "symbols": [

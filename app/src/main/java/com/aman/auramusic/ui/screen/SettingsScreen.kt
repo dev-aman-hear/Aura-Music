@@ -113,7 +113,7 @@ fun SettingsScreen(
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         val initial = remember(username) { username.trim().firstOrNull()?.uppercase() ?: "A" }
-                        com.aman.auramusic.ui.screen.hometest.ClearGlassAvatarBadge(
+                        com.aman.auramusic.ui.screen.home.ClearGlassAvatarBadge(
                             initial = initial,
                             onClick = {},
                             size = 42.dp

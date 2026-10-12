@@ -47,8 +47,8 @@ import com.aman.auramusic.online.network.repository.OnlineMusicRepository
 import com.aman.auramusic.online.network.repository.YouTubeArtistRepositoryImpl
 import com.aman.auramusic.online.player.OnlinePlaybackManager
 import com.aman.auramusic.ui.component.*
-import com.aman.auramusic.ui.screen.hometest.ArtistDetailSheet
-import com.aman.auramusic.ui.screen.hometest.ArtistItem
+import com.aman.auramusic.ui.screen.home.ArtistDetailSheet
+import com.aman.auramusic.ui.screen.home.ArtistItem
 import com.aman.auramusic.util.ArtistArtworkCache
 import com.aman.auramusic.util.ArtistHelper
 import com.aman.auramusic.ui.theme.*

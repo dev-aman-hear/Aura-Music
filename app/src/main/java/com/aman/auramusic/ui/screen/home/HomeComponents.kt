@@ -1,4 +1,4 @@
-package com.aman.auramusic.ui.screen.hometest
+package com.aman.auramusic.ui.screen.home
 
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
@@ -67,7 +67,7 @@ import com.aman.auramusic.util.formatDuration
  * Editorial top bar for the Apple Music Liquid Glass Home experience.
  */
 @Composable
-fun HomeTestHeader(
+fun HomeHeader(
     timeGreeting: String,
     username: String,
     dateText: String,
@@ -157,7 +157,6 @@ fun HomeTestHeader(
                     }
                 }
 
-
                 // Clear Crystal Glass Sphere Profile Avatar Badge
                 ClearGlassAvatarBadge(
                     initial = userInitial,
@@ -171,11 +170,6 @@ fun HomeTestHeader(
 
 /**
  * Clear Crystal Glass Sphere Profile Avatar Badge.
- * Recreates the 3D optical sphere:
- * - Ultra-clear refractive body with top-left highlight and bottom-right caustic pink/coral ambient dispersion
- * - Smooth beveled outer prism border with specular sheen
- * - Concentric optical ring
- * - Soft glowing glass initial letter with translucent inner fill and crystal bezel
  */
 @Composable
 fun ClearGlassAvatarBadge(
@@ -197,35 +191,33 @@ fun ClearGlassAvatarBadge(
                 spotColor = if (isDark) Color(0xFFFF2A55).copy(alpha = 0.45f) else Color(0xFFFF6B8B).copy(alpha = 0.35f)
             )
             .clip(CircleShape)
-            // Optical glass body: ultra-clear with subtle warm pink/coral caustic tint towards bottom right
             .background(
                 Brush.radialGradient(
                     colors = if (isDark) {
                         listOf(
-                            Color.White.copy(alpha = 0.36f),        // Bright specular point
-                            Color(0xFFE4E9FF).copy(alpha = 0.15f),   // Crystal transparent center
-                            Color(0xFFFF7A95).copy(alpha = 0.22f),   // Soft magenta/coral prism glow
-                            Color(0xFF1F121E).copy(alpha = 0.38f)    // Outer sphere base
+                            Color.White.copy(alpha = 0.36f),
+                            Color(0xFFE4E9FF).copy(alpha = 0.15f),
+                            Color(0xFFFF7A95).copy(alpha = 0.22f),
+                            Color(0xFF1F121E).copy(alpha = 0.38f)
                         )
                     } else {
                         listOf(
-                            Color.White.copy(alpha = 0.75f),        // Specular sheen
-                            Color(0xFFF2F6FF).copy(alpha = 0.38f),   // Crystal clear body
-                            Color(0xFFFFB4C4).copy(alpha = 0.30f),   // Prism reflection
+                            Color.White.copy(alpha = 0.75f),
+                            Color(0xFFF2F6FF).copy(alpha = 0.38f),
+                            Color(0xFFFFB4C4).copy(alpha = 0.30f),
                             Color.White.copy(alpha = 0.55f)
                         )
                     }
                 )
             )
-            // Beveled glass sphere rim with chromatic dispersion highlights
             .border(
                 width = 1.3.dp,
                 brush = Brush.sweepGradient(
                     listOf(
                         Color.White.copy(alpha = 0.95f),
-                        Color(0xFF8AD4FF).copy(alpha = 0.40f),  // Subtle cyan refraction
+                        Color(0xFF8AD4FF).copy(alpha = 0.40f),
                         Color.White.copy(alpha = 0.30f),
-                        Color(0xFFFF4D6D).copy(alpha = 0.75f),  // Coral caustics glow on rim
+                        Color(0xFFFF4D6D).copy(alpha = 0.75f),
                         Color(0xFFFF9E79).copy(alpha = 0.50f),
                         Color.White.copy(alpha = 0.92f)
                     )
@@ -236,7 +228,6 @@ fun ClearGlassAvatarBadge(
             .padding(1.5.dp),
         contentAlignment = Alignment.Center
     ) {
-        // Inner concentric reflection ring (optical lens effect)
         Box(
             modifier = Modifier
                 .fillMaxSize(0.86f)
@@ -253,7 +244,6 @@ fun ClearGlassAvatarBadge(
                 ),
             contentAlignment = Alignment.Center
         ) {
-            // Glass initial letter with subtle caustic drop glow and crisp crystal white glyph
             Box(contentAlignment = Alignment.Center) {
                 Text(
                     text = displayInitial,
@@ -274,7 +264,7 @@ fun ClearGlassAvatarBadge(
 }
 
 @Composable
-fun HomeTestHeader(
+fun HomeHeader(
     greeting: String,
     dateText: String,
     userInitial: String,
@@ -283,7 +273,7 @@ fun HomeTestHeader(
     onRefresh: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    HomeTestHeader(
+    HomeHeader(
         timeGreeting = greeting,
         username = "",
         dateText = dateText,
@@ -365,7 +355,6 @@ fun HomeSectionHeader(
 
 /**
  * Minimal Circular Frosted Glass Play Button
- * Matches the clean circular back-button aesthetic with specular rim and subtle depth.
  */
 @Composable
 fun ClearGlassPlayButton(
@@ -427,9 +416,7 @@ fun ClearGlassPlayButton(
 }
 
 /**
- * A. Daily Featured Album or Playlist Card
- * Refresh selection once per calendar day (via DailyFeaturedCache).
- * Apple Music Liquid Glass layout with high-res artwork, DAILY pill, and coral play button.
+ * Daily Featured Album or Playlist Card.
  */
 @Composable
 fun DailyFeaturedCard(
@@ -499,7 +486,6 @@ fun DailyFeaturedCard(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            // High-res artwork with glowing glass bezel
             Box(
                 modifier = Modifier
                     .size(118.dp)
@@ -530,13 +516,10 @@ fun DailyFeaturedCard(
                 )
             }
 
-            // Info details
             Column(
-                modifier = Modifier
-                    .weight(1f),
+                modifier = Modifier.weight(1f),
                 verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                // Top row with DAILY pill badge
                 Surface(
                     shape = RoundedCornerShape(50),
                     color = if (isDark) AppleMusicAccent.copy(alpha = 0.20f) else Color(0xFFFFE8EE),
@@ -554,7 +537,6 @@ fun DailyFeaturedCard(
                     )
                 }
 
-                // Middle: Title & Subtitle
                 Column(modifier = Modifier.fillMaxWidth()) {
                     Text(
                         text = item.title,
@@ -580,7 +562,6 @@ fun DailyFeaturedCard(
                     }
                 }
 
-                // Bottom row: Song count + Glossy Glowing Play button
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -597,7 +578,6 @@ fun DailyFeaturedCard(
                         Spacer(modifier = Modifier.width(1.dp))
                     }
 
-                    // Clear Crystal Glass Sphere Play button
                     ClearGlassPlayButton(
                         onClick = onClick,
                         size = 36.dp
@@ -609,8 +589,7 @@ fun DailyFeaturedCard(
 }
 
 /**
- * Listen Again Horizontal Section (Populated from actual playback history)
- * Draggable horizontally across 2-row stacked columns (Quick Hits 2*x style).
+ * Listen Again Horizontal Section
  */
 @Composable
 fun ListenAgainSection(
@@ -648,8 +627,7 @@ fun ListenAgainSection(
 }
 
 /**
- * B. Trending Songs Horizontal Section (Sourced from YouTube Music / Curated)
- * Distinguishes local vs online availability with Apple Music carousel cards.
+ * Trending Songs Horizontal Section
  */
 @Composable
 fun TrendingSongsSection(
@@ -730,8 +708,7 @@ fun TrendingTrackCard(
 }
 
 /**
- * C. Artists Section
- * Circular artwork portraits arranged horizontally with artist name beneath (Apple Music style).
+ * Artists Section
  */
 @Composable
 fun ArtistsSection(
@@ -784,7 +761,6 @@ fun ArtistSquareCard(
             .padding(horizontal = 2.dp, vertical = 2.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // Circular artist portrait with delicate 1dp liquid glass border
         Box(
             modifier = Modifier
                 .size(size)
@@ -835,7 +811,6 @@ fun ArtistSquareCard(
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        // Clean typography artist name
         Text(
             text = artist.name,
             fontSize = 13.sp,
@@ -849,7 +824,7 @@ fun ArtistSquareCard(
 }
 
 /**
- * Bottom Sheet displaying dedicated Apple Music-inspired artist profile and playable songs.
+ * Artist detail view sheet
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -879,101 +854,137 @@ fun ArtistDetailSheet(
             .entries
             .sortedByDescending { it.value.size }
     }
-    val totalTracks = onlineSongs.size + localSongs.size
     var showArtistMenu by remember(artist.artistId, artist.name) { mutableStateOf(false) }
 
-    // Preserve Android system-back behavior now that this is an in-app screen, not a Dialog.
     androidx.activity.compose.BackHandler(onBack = onDismiss)
 
     Surface(
         modifier = Modifier.fillMaxSize(),
         color = pageBackground
     ) {
-        androidx.compose.foundation.lazy.LazyColumn(
+        LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
                 .navigationBarsPadding(),
-            // Keep scrollable content clear of the global mini-player and bottom navigation.
             contentPadding = PaddingValues(bottom = 176.dp)
         ) {
-                item(key = "artist_hero") {
+            item(key = "artist_hero") {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(340.dp)
+                ) {
+                    val initial = artist.name.trim().firstOrNull()?.uppercaseChar()?.toString().orEmpty()
                     Box(
                         modifier = Modifier
-                            .fillMaxWidth()
-                            .height(340.dp)
+                            .fillMaxSize()
+                            .background(
+                                if (isDark) {
+                                    Brush.linearGradient(
+                                        listOf(Color(0xFF383344), Color(0xFF1D1B24), Color(0xFF0D0C10))
+                                    )
+                                } else {
+                                    Brush.linearGradient(
+                                        listOf(Color(0xFFE4E1EC), Color(0xFFD4D0E0), Color(0xFFC7BFD6))
+                                    )
+                                }
+                            ),
+                        contentAlignment = Alignment.Center
                     ) {
-                        // 1. Fallback initial & gradient (always present beneath artwork)
-                        val initial = artist.name.trim().firstOrNull()?.uppercaseChar()?.toString().orEmpty()
+                        if (initial.isNotBlank()) {
+                            Text(
+                                text = initial,
+                                color = if (isDark) Color.White.copy(alpha = 0.85f) else Color(0xFF4A4458),
+                                fontSize = 76.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+
+                    if (artist.artworkModel != null) {
+                        AsyncImage(
+                            model = artist.artworkModel,
+                            contentDescription = "${artist.name} artist artwork",
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Crop
+                        )
+                    }
+
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(
+                                if (isDark) {
+                                    Brush.verticalGradient(
+                                        0f to Color.Transparent,
+                                        0.50f to Color.Transparent,
+                                        0.78f to pageBackground.copy(alpha = 0.70f),
+                                        1f to pageBackground
+                                    )
+                                } else {
+                                    Brush.verticalGradient(
+                                        0f to Color.Transparent,
+                                        0.50f to Color.Transparent,
+                                        0.78f to pageBackground.copy(alpha = 0.75f),
+                                        1f to pageBackground
+                                    )
+                                }
+                            )
+                    )
+
+                    Row(
+                        modifier = Modifier
+                            .align(Alignment.TopCenter)
+                            .fillMaxWidth()
+                            .statusBarsPadding()
+                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
                         Box(
                             modifier = Modifier
-                                .fillMaxSize()
+                                .size(44.dp)
+                                .clip(CircleShape)
                                 .background(
-                                    if (isDark) {
-                                        Brush.linearGradient(
-                                            listOf(Color(0xFF383344), Color(0xFF1D1B24), Color(0xFF0D0C10))
+                                    Brush.verticalGradient(
+                                        if (isDark) listOf(
+                                            Color.White.copy(alpha = 0.25f),
+                                            Color.White.copy(alpha = 0.08f),
+                                            Color.White.copy(alpha = 0.03f)
+                                        ) else listOf(
+                                            Color.White.copy(alpha = 0.85f),
+                                            Color.White.copy(alpha = 0.65f),
+                                            Color.White.copy(alpha = 0.50f)
                                         )
-                                    } else {
-                                        Brush.linearGradient(
-                                            listOf(Color(0xFFE4E1EC), Color(0xFFD4D0E0), Color(0xFFC7BFD6))
+                                    ),
+                                    CircleShape
+                                )
+                                .border(
+                                    width = 1.dp,
+                                    brush = Brush.verticalGradient(
+                                        if (isDark) listOf(
+                                            Color.White.copy(alpha = 0.70f),
+                                            Color.White.copy(alpha = 0.20f)
+                                        ) else listOf(
+                                            Color.White.copy(alpha = 0.95f),
+                                            Color.White.copy(alpha = 0.60f)
                                         )
-                                    }
+                                    ),
+                                    shape = CircleShape
                                 ),
                             contentAlignment = Alignment.Center
                         ) {
-                            if (initial.isNotBlank()) {
-                                Text(
-                                    text = initial,
-                                    color = if (isDark) Color.White.copy(alpha = 0.85f) else Color(0xFF4A4458),
-                                    fontSize = 76.sp,
-                                    fontWeight = FontWeight.Bold
+                            IconButton(onClick = onDismiss) {
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                    contentDescription = "Back",
+                                    tint = if (isDark) Color.White else Color(0xFF1A1A1A),
+                                    modifier = Modifier.size(23.dp)
                                 )
                             }
                         }
 
-                        // 2. Artist portrait from YouTube Music metadata
-                        if (artist.artworkModel != null) {
-                            AsyncImage(
-                                model = artist.artworkModel,
-                                contentDescription = "${artist.name} artist artwork",
-                                modifier = Modifier.fillMaxSize(),
-                                contentScale = ContentScale.Crop
-                            )
-                        }
-
-                        // 3. Clean vertical gradient smoothly blending artwork into page background
-                        // In light mode, completely removes dark overlays so the artist portrait remains bright, vivid, and natural.
-                        Box(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .background(
-                                    if (isDark) {
-                                        Brush.verticalGradient(
-                                            0f to Color.Transparent,
-                                            0.50f to Color.Transparent,
-                                            0.78f to pageBackground.copy(alpha = 0.70f),
-                                            1f to pageBackground
-                                        )
-                                    } else {
-                                        Brush.verticalGradient(
-                                            0f to Color.Transparent,
-                                            0.50f to Color.Transparent,
-                                            0.78f to pageBackground.copy(alpha = 0.75f),
-                                            1f to pageBackground
-                                        )
-                                    }
-                                )
-                        )
-
-                        // Minimal liquid-glass controls: Back on the left, artist actions on the right.
-                        Row(
-                            modifier = Modifier
-                                .align(Alignment.TopCenter)
-                                .fillMaxWidth()
-                                .statusBarsPadding()
-                                .padding(horizontal = 16.dp, vertical = 8.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
+                        Box {
                             Box(
                                 modifier = Modifier
                                     .size(44.dp)
@@ -1007,338 +1018,291 @@ fun ArtistDetailSheet(
                                     ),
                                 contentAlignment = Alignment.Center
                             ) {
-                                IconButton(onClick = onDismiss) {
+                                IconButton(onClick = { showArtistMenu = true }) {
                                     Icon(
-                                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                                        contentDescription = "Back",
+                                        imageVector = Icons.Default.MoreHoriz,
+                                        contentDescription = "Artist options",
                                         tint = if (isDark) Color.White else Color(0xFF1A1A1A),
-                                        modifier = Modifier.size(23.dp)
+                                        modifier = Modifier.size(24.dp)
                                     )
                                 }
                             }
-
-                            Box {
-                                Box(
-                                    modifier = Modifier
-                                        .size(44.dp)
-                                        .clip(CircleShape)
-                                        .background(
-                                            Brush.verticalGradient(
-                                                if (isDark) listOf(
-                                                    Color.White.copy(alpha = 0.25f),
-                                                    Color.White.copy(alpha = 0.08f),
-                                                    Color.White.copy(alpha = 0.03f)
-                                                ) else listOf(
-                                                    Color.White.copy(alpha = 0.85f),
-                                                    Color.White.copy(alpha = 0.65f),
-                                                    Color.White.copy(alpha = 0.50f)
-                                                )
-                                            ),
-                                            CircleShape
-                                        )
-                                        .border(
-                                            width = 1.dp,
-                                            brush = Brush.verticalGradient(
-                                                if (isDark) listOf(
-                                                    Color.White.copy(alpha = 0.70f),
-                                                    Color.White.copy(alpha = 0.20f)
-                                                ) else listOf(
-                                                    Color.White.copy(alpha = 0.95f),
-                                                    Color.White.copy(alpha = 0.60f)
-                                                )
-                                            ),
-                                            shape = CircleShape
-                                        ),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    IconButton(onClick = { showArtistMenu = true }) {
-                                        Icon(
-                                            imageVector = Icons.Default.MoreHoriz,
-                                            contentDescription = "Artist options",
-                                            tint = if (isDark) Color.White else Color(0xFF1A1A1A),
-                                            modifier = Modifier.size(24.dp)
-                                        )
-                                    }
-                                }
-                                DropdownMenu(
-                                    expanded = showArtistMenu,
-                                    onDismissRequest = { showArtistMenu = false }
-                                ) {
-                                    if (onToggleSaveToLibrary != null) {
-                                        DropdownMenuItem(
-                                            text = {
-                                                Text(if (isSavedInLibrary) "Remove from Artist" else "Save to Artist")
-                                            },
-                                            leadingIcon = {
-                                                Icon(
-                                                    imageVector = if (isSavedInLibrary) Icons.Default.BookmarkAdded else Icons.Default.BookmarkAdd,
-                                                    contentDescription = null
-                                                )
-                                            },
-                                            onClick = {
-                                                showArtistMenu = false
-                                                onToggleSaveToLibrary()
-                                            }
-                                        )
-                                    }
+                            DropdownMenu(
+                                expanded = showArtistMenu,
+                                onDismissRequest = { showArtistMenu = false }
+                            ) {
+                                if (onToggleSaveToLibrary != null) {
+                                    DropdownMenuItem(
+                                        text = {
+                                            Text(if (isSavedInLibrary) "Remove from Artist" else "Save to Artist")
+                                        },
+                                        leadingIcon = {
+                                            Icon(
+                                                imageVector = if (isSavedInLibrary) Icons.Default.BookmarkAdded else Icons.Default.BookmarkAdd,
+                                                contentDescription = null
+                                            )
+                                        },
+                                        onClick = {
+                                            showArtistMenu = false
+                                            onToggleSaveToLibrary()
+                                        }
+                                    )
                                 }
                             }
                         }
+                    }
 
-                        // Artist identity on the left, one prominent Play action on the right.
+                    Row(
+                        modifier = Modifier
+                            .align(Alignment.BottomCenter)
+                            .fillMaxWidth()
+                            .padding(start = 22.dp, end = 22.dp, bottom = 22.dp),
+                        verticalAlignment = Alignment.Bottom
+                    ) {
+                        Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
+                            Text(
+                                text = artist.name,
+                                color = titleColor,
+                                fontSize = 32.sp,
+                                lineHeight = 36.sp,
+                                fontWeight = FontWeight.ExtraBold,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            Spacer(modifier = Modifier.height(5.dp))
+                            val effectiveAudience = audienceText?.takeIf { it.isNotBlank() && !it.equals("YouTube Music", ignoreCase = true) }
+                                ?: artist.songCountText.takeIf { it.isNotBlank() && !it.equals("YouTube Music", ignoreCase = true) && (artist.isOnline || it.contains("audience", ignoreCase = true) || it.contains("subscribers", ignoreCase = true)) }
+                                ?: if (localSongs.isNotEmpty()) "${localSongs.size} songs" else null
+
+                            if (!effectiveAudience.isNullOrBlank()) {
+                                val formattedAudience = if (!effectiveAudience.startsWith("Artist", ignoreCase = true)) {
+                                    "Artist • $effectiveAudience"
+                                } else {
+                                    effectiveAudience
+                                }
+                                Text(
+                                    text = formattedAudience,
+                                    color = secondaryColor,
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Medium
+                                )
+                            }
+                        }
+                        ClearGlassPlayButton(
+                            onClick = onPlayAll,
+                            size = 54.dp,
+                            iconSize = 28.dp
+                        )
+                    }
+                }
+            }
+
+            if (isLoading) {
+                item(key = "artist_loading") {
+                    Box(
+                        modifier = Modifier.fillMaxWidth().height(180.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            CircularProgressIndicator(color = AuraPrimary)
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Text("Loading artist catalogue from YouTube Music…", color = secondaryColor, fontSize = 13.sp)
+                        }
+                    }
+                }
+            } else if (onlineSongs.isEmpty() && localSongs.isEmpty()) {
+                item(key = "artist_empty") {
+                    Text(
+                        text = "No tracks are available for this artist yet.",
+                        color = secondaryColor,
+                        fontSize = 14.sp,
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 26.dp)
+                    )
+                }
+            } else {
+                if (onlineSongs.isNotEmpty()) {
+                    item(key = "artist_top_songs_heading") {
+                        Text(
+                            text = "Top songs",
+                            color = titleColor,
+                            fontSize = 23.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 10.dp, bottom = 8.dp)
+                        )
+                    }
+                    items(onlineSongs.take(20), key = { "yt_artist_track_${it.id}" }) { song ->
                         Row(
                             modifier = Modifier
-                                .align(Alignment.BottomCenter)
                                 .fillMaxWidth()
-                                .padding(start = 22.dp, end = 22.dp, bottom = 22.dp),
-                            verticalAlignment = Alignment.Bottom
+                                .clickable { onPlayOnlineSong(song, onlineSongs) }
+                                .padding(horizontal = 16.dp, vertical = 7.dp),
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
+                            AuraArtwork(
+                                model = song.artworkUrl,
+                                size = 54,
+                                shape = RoundedCornerShape(6.dp),
+                                elevation = 0.dp,
+                                modifier = Modifier.size(54.dp)
+                            )
+                            Column(modifier = Modifier.weight(1f).padding(start = 12.dp, end = 8.dp)) {
+                                Text(song.title, color = titleColor, fontSize = 14.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Spacer(modifier = Modifier.height(3.dp))
                                 Text(
-                                    text = artist.name,
-                                    color = titleColor,
-                                    fontSize = 32.sp,
-                                    lineHeight = 36.sp,
-                                    fontWeight = FontWeight.ExtraBold,
-                                    maxLines = 2,
+                                    text = listOf(song.artist, song.album.takeIf { it.isNotBlank() && !it.equals("YouTube Music", true) })
+                                        .filterNotNull().filter { it.isNotBlank() }.distinct().joinToString(" · "),
+                                    color = secondaryColor,
+                                    fontSize = 11.5.sp,
+                                    maxLines = 1,
                                     overflow = TextOverflow.Ellipsis
                                 )
-                                Spacer(modifier = Modifier.height(5.dp))
-                                val effectiveAudience = audienceText?.takeIf { it.isNotBlank() && !it.equals("YouTube Music", ignoreCase = true) }
-                                    ?: artist.songCountText.takeIf { it.isNotBlank() && !it.equals("YouTube Music", ignoreCase = true) && (artist.isOnline || it.contains("audience", ignoreCase = true) || it.contains("subscribers", ignoreCase = true)) }
-                                    ?: if (localSongs.isNotEmpty()) "${localSongs.size} songs" else null
-
-                                if (!effectiveAudience.isNullOrBlank()) {
-                                    val formattedAudience = if (!effectiveAudience.startsWith("Artist", ignoreCase = true)) {
-                                        "Artist • $effectiveAudience"
-                                    } else {
-                                        effectiveAudience
-                                    }
-                                    Text(
-                                        text = formattedAudience,
-                                        color = secondaryColor,
-                                        fontSize = 13.sp,
-                                        fontWeight = FontWeight.Medium
-                                    )
-                                }
                             }
                             ClearGlassPlayButton(
-                                onClick = onPlayAll,
-                                size = 54.dp,
-                                iconSize = 28.dp
+                                onClick = { onPlayOnlineSong(song, onlineSongs) },
+                                size = 32.dp,
+                                iconSize = 16.dp
                             )
                         }
                     }
                 }
 
-                if (isLoading) {
-                    item(key = "artist_loading") {
-                        Box(
-                            modifier = Modifier.fillMaxWidth().height(180.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                CircularProgressIndicator(color = AuraPrimary)
-                                Spacer(modifier = Modifier.height(12.dp))
-                                Text("Loading artist catalogue from YouTube Music…", color = secondaryColor, fontSize = 13.sp)
-                            }
-                        }
-                    }
-                } else if (onlineSongs.isEmpty() && localSongs.isEmpty()) {
-                    item(key = "artist_empty") {
+                if (localSongs.isNotEmpty()) {
+                    item(key = "artist_local_heading") {
                         Text(
-                            text = "No tracks are available for this artist yet.",
-                            color = secondaryColor,
-                            fontSize = 14.sp,
-                            modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 26.dp)
+                            text = if (onlineSongs.isEmpty()) "Top songs" else "In your library",
+                            color = titleColor,
+                            fontSize = 23.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(
+                                start = 20.dp,
+                                end = 20.dp,
+                                top = if (onlineSongs.isEmpty()) 10.dp else 24.dp,
+                                bottom = 8.dp
+                            )
                         )
                     }
-                } else {
-                    if (onlineSongs.isNotEmpty()) {
-                        item(key = "artist_top_songs_heading") {
-                            Text(
-                                text = "Top songs",
-                                color = titleColor,
-                                fontSize = 23.sp,
-                                fontWeight = FontWeight.Bold,
-                                modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 10.dp, bottom = 8.dp)
+                    items(localSongs, key = { "local_artist_track_${it.id}" }) { song ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { onPlaySong(song, localSongs) }
+                                .padding(horizontal = 16.dp, vertical = 7.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            SongArtwork(song = song, size = 54)
+                            Column(modifier = Modifier.weight(1f).padding(start = 12.dp, end = 8.dp)) {
+                                Text(song.title, color = titleColor, fontSize = 14.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Spacer(modifier = Modifier.height(3.dp))
+                                val subtitleText = listOf(song.artist, song.album)
+                                    .filter { it.isNotBlank() && !it.equals("unknown", true) }
+                                    .distinct()
+                                    .joinToString(" · ")
+                                    .ifBlank { song.artist }
+                                Text(subtitleText, color = secondaryColor, fontSize = 11.5.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            }
+                            ClearGlassPlayButton(
+                                onClick = { onPlaySong(song, localSongs) },
+                                size = 32.dp,
+                                iconSize = 16.dp
                             )
                         }
-                        items(onlineSongs.take(20), key = { "yt_artist_track_${it.id}" }) { song ->
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clickable { onPlayOnlineSong(song, onlineSongs) }
-                                    .padding(horizontal = 16.dp, vertical = 7.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                AuraArtwork(
-                                    model = song.artworkUrl,
-                                    size = 54,
-                                    shape = RoundedCornerShape(6.dp),
-                                    elevation = 0.dp,
-                                    modifier = Modifier.size(54.dp)
-                                )
-                                Column(modifier = Modifier.weight(1f).padding(start = 12.dp, end = 8.dp)) {
-                                    Text(song.title, color = titleColor, fontSize = 14.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                    Spacer(modifier = Modifier.height(3.dp))
+                    }
+                }
+
+                if (onlineAlbums.isNotEmpty()) {
+                    item(key = "artist_online_albums_heading") {
+                        Text(
+                            text = "Albums & singles",
+                            color = titleColor,
+                            fontSize = 23.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 24.dp, bottom = 10.dp)
+                        )
+                    }
+                    item(key = "artist_online_albums_rail") {
+                        LazyRow(
+                            contentPadding = PaddingValues(horizontal = 20.dp),
+                            horizontalArrangement = Arrangement.spacedBy(14.dp)
+                        ) {
+                            items(onlineAlbums, key = { "yt_album_${it.id}" }) { album ->
+                                Column(
+                                    modifier = Modifier
+                                        .width(142.dp)
+                                        .clickable { onOpenOnlineAlbum(album) }
+                                ) {
+                                    AuraArtwork(
+                                        model = album.artworkUrl,
+                                        size = 142,
+                                        shape = RoundedCornerShape(8.dp),
+                                        elevation = 0.dp,
+                                        modifier = Modifier.size(142.dp)
+                                    )
+                                    Spacer(modifier = Modifier.height(7.dp))
                                     Text(
-                                        text = listOf(song.artist, song.album.takeIf { it.isNotBlank() && !it.equals("YouTube Music", true) })
-                                            .filterNotNull().filter { it.isNotBlank() }.distinct().joinToString(" · "),
+                                        album.title,
+                                        color = titleColor,
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                    Text(
+                                        album.subtitle.ifBlank { "Release" },
                                         color = secondaryColor,
-                                        fontSize = 11.5.sp,
+                                        fontSize = 11.sp,
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis
                                     )
                                 }
-                                ClearGlassPlayButton(
-                                    onClick = { onPlayOnlineSong(song, onlineSongs) },
-                                    size = 32.dp,
-                                    iconSize = 16.dp
-                                )
                             }
                         }
                     }
+                }
 
-                    if (localSongs.isNotEmpty()) {
-                        item(key = "artist_local_heading") {
-                            Text(
-                                text = if (onlineSongs.isEmpty()) "Top songs" else "In your library",
-                                color = titleColor,
-                                fontSize = 23.sp,
-                                fontWeight = FontWeight.Bold,
-                                modifier = Modifier.padding(
-                                    start = 20.dp,
-                                    end = 20.dp,
-                                    top = if (onlineSongs.isEmpty()) 10.dp else 24.dp,
-                                    bottom = 8.dp
-                                )
-                            )
-                        }
-                        items(localSongs, key = { "local_artist_track_${it.id}" }) { song ->
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clickable { onPlaySong(song, localSongs) }
-                                    .padding(horizontal = 16.dp, vertical = 7.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                SongArtwork(song = song, size = 54)
-                                Column(modifier = Modifier.weight(1f).padding(start = 12.dp, end = 8.dp)) {
-                                    Text(song.title, color = titleColor, fontSize = 14.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                    Spacer(modifier = Modifier.height(3.dp))
-                                    val subtitleText = listOf(song.artist, song.album)
-                                        .filter { it.isNotBlank() && !it.equals("unknown", true) }
-                                        .distinct()
-                                        .joinToString(" · ")
-                                        .ifBlank { song.artist }
-                                    Text(subtitleText, color = secondaryColor, fontSize = 11.5.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                }
-                                ClearGlassPlayButton(
-                                    onClick = { onPlaySong(song, localSongs) },
-                                    size = 32.dp,
-                                    iconSize = 16.dp
-                                )
-                            }
-                        }
+                if (realAlbums.isNotEmpty()) {
+                    item(key = "artist_albums_heading") {
+                        Text(
+                            text = "Albums in your library",
+                            color = titleColor,
+                            fontSize = 23.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 24.dp, bottom = 10.dp)
+                        )
                     }
-
-                    if (onlineAlbums.isNotEmpty()) {
-                        item(key = "artist_online_albums_heading") {
-                            Text(
-                                text = "Albums & singles",
-                                color = titleColor,
-                                fontSize = 23.sp,
-                                fontWeight = FontWeight.Bold,
-                                modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 24.dp, bottom = 10.dp)
-                            )
-                        }
-                        item(key = "artist_online_albums_rail") {
-                            LazyRow(
-                                contentPadding = PaddingValues(horizontal = 20.dp),
-                                horizontalArrangement = Arrangement.spacedBy(14.dp)
-                            ) {
-                                items(onlineAlbums, key = { "yt_album_${it.id}" }) { album ->
-                                    Column(
-                                        modifier = Modifier
-                                            .width(142.dp)
-                                            .clickable { onOpenOnlineAlbum(album) }
-                                    ) {
-                                        AuraArtwork(
-                                            model = album.artworkUrl,
-                                            size = 142,
-                                            shape = RoundedCornerShape(8.dp),
-                                            elevation = 0.dp,
-                                            modifier = Modifier.size(142.dp)
-                                        )
-                                        Spacer(modifier = Modifier.height(7.dp))
-                                        Text(
-                                            album.title,
-                                            color = titleColor,
-                                            fontSize = 13.sp,
-                                            fontWeight = FontWeight.SemiBold,
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis
-                                        )
-                                        Text(
-                                            album.subtitle.ifBlank { "Release" },
-                                            color = secondaryColor,
-                                            fontSize = 11.sp,
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis
-                                        )
+                    item(key = "artist_albums_rail") {
+                        LazyRow(
+                            contentPadding = PaddingValues(horizontal = 20.dp),
+                            horizontalArrangement = Arrangement.spacedBy(14.dp)
+                        ) {
+                            items(realAlbums, key = { "artist_album_${it.key}" }) { entry ->
+                                Column(
+                                    modifier = Modifier.width(142.dp).clickable {
+                                        val albumTracks = entry.value
+                                        albumTracks.firstOrNull()?.let { onPlaySong(it, albumTracks) }
                                     }
-                                }
-                            }
-                        }
-                    }
-
-                    if (realAlbums.isNotEmpty()) {
-                        item(key = "artist_albums_heading") {
-                            Text(
-                                text = "Albums in your library",
-                                color = titleColor,
-                                fontSize = 23.sp,
-                                fontWeight = FontWeight.Bold,
-                                modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 24.dp, bottom = 10.dp)
-                            )
-                        }
-                        item(key = "artist_albums_rail") {
-                            LazyRow(
-                                contentPadding = PaddingValues(horizontal = 20.dp),
-                                horizontalArrangement = Arrangement.spacedBy(14.dp)
-                            ) {
-                                items(realAlbums, key = { "artist_album_${it.key}" }) { entry ->
-                                    Column(
-                                        modifier = Modifier.width(142.dp).clickable {
-                                            val albumTracks = entry.value
-                                            albumTracks.firstOrNull()?.let { onPlaySong(it, albumTracks) }
-                                        }
-                                    ) {
-                                        AuraArtwork(
-                                            model = entry.value.firstOrNull()?.artworkUri,
-                                            size = 142,
-                                            shape = RoundedCornerShape(8.dp),
-                                            elevation = 0.dp,
-                                            modifier = Modifier.size(142.dp)
-                                        )
-                                        Spacer(modifier = Modifier.height(7.dp))
-                                        Text(entry.key, color = titleColor, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                        Text("${entry.value.size} songs · Local library", color = secondaryColor, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                    }
+                                ) {
+                                    AuraArtwork(
+                                        model = entry.value.firstOrNull()?.artworkUri,
+                                        size = 142,
+                                        shape = RoundedCornerShape(8.dp),
+                                        elevation = 0.dp,
+                                        modifier = Modifier.size(142.dp)
+                                    )
+                                    Spacer(modifier = Modifier.height(7.dp))
+                                    Text(entry.key, color = titleColor, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                    Text("${entry.value.size} songs · Local library", color = secondaryColor, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                 }
                             }
                         }
                     }
                 }
+            }
         }
     }
 }
 
 /**
- * D. Quick Hits Section
- * Draggable horizontally from right to left across 3-row stacked columns (like Quick Picks in Home tab).
- * Interleaves BOTH offline (local library) and online trending & category top hits.
+ * Quick Hits Section
  */
 @Composable
 fun QuickHitsSection(
@@ -1470,7 +1434,6 @@ fun QuickHitTrackItem(
                 .padding(horizontal = 8.dp, vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // High-quality artwork thumbnail
             AuraArtwork(
                 model = track.artworkModel,
                 size = 46,
@@ -1481,7 +1444,6 @@ fun QuickHitTrackItem(
 
             Spacer(modifier = Modifier.width(10.dp))
 
-            // Details
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = track.title,
@@ -1533,8 +1495,7 @@ fun QuickHitTrackItem(
 }
 
 /**
- * E. Discover by Category (Genres & Moods)
- * Compact rounded cards inspired by the Dribbble reference mesh gradient aesthetics.
+ * Discover by Category (Genres & Moods)
  */
 @Composable
 fun DiscoverCategorySection(
@@ -1628,7 +1589,7 @@ fun DiscoverCategoryCard(
 }
 
 /**
- * Bottom Sheet displaying songs for a selected category with Play & Shuffle options.
+ * Category Detail Sheet
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -1658,7 +1619,6 @@ fun CategoryDetailSheet(
                 .padding(horizontal = 20.dp, vertical = 8.dp)
                 .verticalScroll(scrollState)
         ) {
-            // Header
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -1764,7 +1724,7 @@ fun CategoryDetailSheet(
 }
 
 /**
- * Bottom Sheet displaying full grid of discovered artists in square/circular portrait cards.
+ * All Artists Sheet
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -1819,7 +1779,7 @@ fun AllArtistsSheet(
 }
 
 /**
- * Bottom Sheet displaying full rectangular list of all Quick Hits tracks.
+ * All Quick Hits Sheet
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -1885,7 +1845,7 @@ fun AllQuickHitsSheet(
 }
 
 /**
- * Bottom Sheet displaying full rectangular grid of all categories & genres.
+ * All Categories Sheet
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -1940,4 +1900,3 @@ fun AllCategoriesSheet(
         }
     }
 }
-
