@@ -76,7 +76,8 @@ data class ArtistItem(
 data class ArtistProfileData(
     val onlineSongs: List<OnlineSong> = emptyList(),
     val localSongs: List<Song> = emptyList(),
-    val onlineAlbums: List<OnlinePlaylist> = emptyList()
+    val onlineAlbums: List<OnlinePlaylist> = emptyList(),
+    val audienceText: String? = null
 )
 
 data class CategoryDiscoverItem(
@@ -522,48 +523,8 @@ class HomeTestViewModel @Inject constructor(
      * "Taylor Swift feat. Post Malone" -> ["Taylor Swift", "Post Malone"]
      * "The Weeknd - Topic" -> ["The Weeknd"]
      */
-    private fun extractSingleArtistNames(raw: String): List<String> {
-        if (raw.isBlank()) return emptyList()
-
-        var cleaned = raw
-            .replace(" - Topic", "", ignoreCase = true)
-            .replace("Official", "", ignoreCase = true)
-            .replace("VEVO", "", ignoreCase = true)
-            .trim()
-
-        // Extract featured artists from parentheses
-        val parentheticalRegex = Regex("""[\(\[\{](?:feat\.?|ft\.?|with)\s+([^\)\]\}]+)[\)\]\}]""", RegexOption.IGNORE_CASE)
-        val fromParens = mutableListOf<String>()
-        parentheticalRegex.findAll(cleaned).forEach { match ->
-            fromParens.add(match.groupValues[1])
-        }
-        cleaned = cleaned.replace(parentheticalRegex, " ")
-
-        val splitRegex = Regex(""",|;|&|/|\||\s+feat\.?\s+|\s+ft\.?\s+|\s+with\s+|\s+and\s+|\s+x\s+|\s+vs\.?\s+""", RegexOption.IGNORE_CASE)
-        val parts = cleaned.split(splitRegex)
-
-        val invalidNames = setOf(
-            "unknown", "unknown artist", "various", "various artists", "various artist",
-            "soundtrack", "ost", "compilation", "audio", "music", "null", "undefined",
-            "remix", "records", "producer", "feat", "ft", "instrumental",
-            "video", "videos", "official video", "official audio", "clip", "channel",
-            "top hits", "hits", "mix", "best of", "trending",
-            "song", "songs", "track", "tracks", "album", "single", "singles"
-        )
-
-        return (parts + fromParens)
-            .map { it.trim().trim('"', '\'', '(', ')', '[', ']', '{', '}', '-', '_', '.', '~') }
-            .filter { name ->
-                val lower = name.lowercase()
-                name.length in 2..40 &&
-                !invalidNames.contains(lower) &&
-                !lower.startsWith("top ") &&
-                !lower.endsWith(" hits") &&
-                !lower.contains("202") &&
-                name.any { it.isLetter() }
-            }
-            .distinctBy { it.lowercase() }
-    }
+    private fun extractSingleArtistNames(raw: String): List<String> =
+        com.aman.auramusic.util.ArtistHelper.extractArtistNames(raw)
 
     /**
      * Builds artist list guaranteeing strictly ONE single artist per card and evenly balancing
@@ -598,7 +559,7 @@ class HomeTestViewModel @Inject constructor(
                 val onlineMatch = discoveredOnline.firstOrNull {
                     matchesArtistName(it.name, artistName) && !it.profileImageUrl.isNullOrBlank()
                 }
-                val portraitUrl = (cached?.profileImageUrl ?: onlineMatch?.profileImageUrl)?.takeIf { it.isNotBlank() }
+                val portraitUrl = (cached?.profileImageUrl ?: onlineMatch?.profileImageUrl ?: com.aman.auramusic.util.ArtistArtworkCache.get(artistName))?.takeIf { it.isNotBlank() }
                 ArtistItem(
                     name = artistName,
                     songCountText = "${songList.size} songs",
@@ -939,10 +900,15 @@ class HomeTestViewModel @Inject constructor(
             com.aman.auramusic.online.network.repository.ArtistCatalogue()
         }
 
+        val audienceText = catalogue.subscriberCountText?.takeIf { it.isNotBlank() }
+            ?: (localArtistMetadataCache[normalizeArtistComparable(artistName)] ?: cachedDiscoveredArtists.firstOrNull { matchesArtistName(it.name, artistName) })?.subscriberCountText?.takeIf { it.isNotBlank() }
+            ?: (if (artist.isOnline && artist.songCountText.isNotBlank()) artist.songCountText else null)
+
         ArtistProfileData(
             onlineSongs = catalogue.songs.filter { it.source == AudioSource.YOUTUBE }.distinctBy { it.id },
             localSongs = localFiltered,
-            onlineAlbums = catalogue.albums
+            onlineAlbums = catalogue.albums,
+            audienceText = audienceText
         )
     }
 
@@ -981,11 +947,17 @@ class HomeTestViewModel @Inject constructor(
             }
 
             localArtistMetadataCache[normalizeArtistComparable(name)] = resolved
+            val audience = resolved.subscriberCountText?.takeIf {
+                !it.equals("YouTube Music", ignoreCase = true) && !it.equals("YouTube Music Artist", ignoreCase = true)
+            } ?: artist.songCountText.takeIf {
+                it.contains("audience", ignoreCase = true) || it.contains("subscribers", ignoreCase = true) || it.contains("listeners", ignoreCase = true)
+            }
             com.aman.auramusic.online.model.SavedOnlineArtist(
                 id = resolved.id,
                 name = resolved.name.ifBlank { name },
                 profileImageUrl = resolved.profileImageUrl ?: artist.artworkModel as? String,
-                source = AudioSource.YOUTUBE
+                source = AudioSource.YOUTUBE,
+                audienceText = audience
             )
         }
 
@@ -1039,6 +1011,7 @@ class HomeTestViewModel @Inject constructor(
                             android.util.Log.d("AuraPlaybackDebug", "Whether a profile image URL was found: true")
                             localArtistMetadataCache[key] = entity
                             cachedDiscoveredArtists = (cachedDiscoveredArtists + entity).distinctBy { it.id }
+                            com.aman.auramusic.util.ArtistArtworkCache.put(getApplication(), artistName, profileUrl)
 
                             withContext(Dispatchers.Main) {
                                 _uiState.value = _uiState.value.copy(

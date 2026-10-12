@@ -22,6 +22,7 @@ import androidx.compose.material.icons.automirrored.filled.QueueMusic
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -48,7 +49,32 @@ import com.aman.auramusic.online.player.OnlinePlaybackManager
 import com.aman.auramusic.ui.component.*
 import com.aman.auramusic.ui.screen.hometest.ArtistDetailSheet
 import com.aman.auramusic.ui.screen.hometest.ArtistItem
+import com.aman.auramusic.util.ArtistArtworkCache
+import com.aman.auramusic.util.ArtistHelper
 import com.aman.auramusic.ui.theme.*
+
+private fun formatArtistAudience(raw: String?): String {
+    if (raw.isNullOrBlank()) return "Artist"
+    val clean = raw.trim()
+    val stripped = if (clean.startsWith("Artist •", ignoreCase = true)) {
+        clean.substringAfter("Artist •").trim()
+    } else if (clean.startsWith("Artist -", ignoreCase = true)) {
+        clean.substringAfter("Artist -").trim()
+    } else if (clean.startsWith("Artist", ignoreCase = true) && clean.length > 6) {
+        clean.substring(6).trim(' ', '•', '-', '·')
+    } else {
+        clean
+    }
+    return if (stripped.isNotBlank() &&
+        !stripped.equals("YouTube Music", ignoreCase = true) &&
+        !stripped.equals("YouTube Music Artist", ignoreCase = true) &&
+        !stripped.contains("Saved", ignoreCase = true)
+    ) {
+        stripped
+    } else {
+        "Artist"
+    }
+}
 
 enum class LibraryTab(val label: String) {
     SONGS("Songs"),
@@ -94,7 +120,13 @@ fun LibraryScreen(
 ) {
     val context = LocalContext.current
     val isDark = LocalIsDark.current
-    var selectedTab by remember { mutableStateOf(LibraryTab.SONGS) }
+    var selectedTab by rememberSaveable(
+        stateSaver = androidx.compose.runtime.saveable.Saver(
+            save = { it.name },
+            restore = { name -> runCatching { LibraryTab.valueOf(name) }.getOrDefault(LibraryTab.SONGS) }
+        )
+    ) { mutableStateOf(LibraryTab.SONGS) }
+    var selectedLocalAlbum by remember { mutableStateOf<Pair<String, List<Song>>?>(null) }
     var showAllPlaylists by remember { mutableStateOf(false) }
 
     val onlineRepository = remember { OnlineMusicRepository() }
@@ -108,7 +140,9 @@ fun LibraryScreen(
     var playlistDetailSongs by remember { mutableStateOf<List<OnlineSong>>(emptyList()) }
     var isPlaylistDetailLoading by remember { mutableStateOf(false) }
 
-    var selectedOnlineArtist by remember { mutableStateOf<SavedOnlineArtist?>(null) }
+    var selectedArtist by remember { mutableStateOf<ArtistItem?>(null) }
+    var onlineArtistAudiences by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
+    var onlineArtistPortraits by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
     var artistDetailSongs by remember { mutableStateOf<List<OnlineSong>>(emptyList()) }
     var artistDetailAlbums by remember { mutableStateOf<List<OnlinePlaylist>>(emptyList()) }
     var isArtistDetailLoading by remember { mutableStateOf(false) }
@@ -127,12 +161,37 @@ fun LibraryScreen(
         }
     }
 
-    LaunchedEffect(selectedOnlineArtist) {
-        val artist = selectedOnlineArtist
+    LaunchedEffect(selectedArtist) {
+        val artist = selectedArtist
         if (artist != null) {
             isArtistDetailLoading = true
             try {
-                val catalogue = youtubeArtistRepository.getArtistCatalogue(artist.name, artist.id)
+                var browseId = artist.artistId
+                if (browseId.isBlank() || browseId.startsWith("local_")) {
+                    val searchResults = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                        try {
+                            youtubeArtistRepository.searchArtists(artist.name)
+                        } catch (_: Exception) {
+                            emptyList()
+                        }
+                    }
+                    val found = searchResults.firstOrNull { it.name.equals(artist.name, ignoreCase = true) }
+                    if (found != null && found.id.isNotBlank() && !found.id.startsWith("local_")) {
+                        browseId = found.id
+                        if (!found.subscriberCountText.isNullOrBlank()) {
+                            onlineArtistAudiences = onlineArtistAudiences + (found.id to found.subscriberCountText) + (artist.name to found.subscriberCountText)
+                        }
+                    }
+                }
+                val catalogue = if (browseId.isNotBlank() && !browseId.startsWith("local_")) {
+                    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                        try {
+                            youtubeArtistRepository.getArtistCatalogue(artist.name, browseId)
+                        } catch (_: Exception) {
+                            com.aman.auramusic.online.network.repository.ArtistCatalogue()
+                        }
+                    }
+                } else com.aman.auramusic.online.network.repository.ArtistCatalogue()
                 artistDetailSongs = catalogue.songs
                 artistDetailAlbums = catalogue.albums
             } catch (_: Exception) {
@@ -142,6 +201,28 @@ fun LibraryScreen(
                 isArtistDetailLoading = false
             }
         }
+    }
+
+    // Drill down to Local Album Details
+    if (selectedLocalAlbum != null) {
+        BackHandler {
+            selectedLocalAlbum = null
+        }
+        val (albumName, albumSongs) = selectedLocalAlbum!!
+        val isChart = albumName.startsWith("Apple Music") || albumName.startsWith("Spotify")
+        CollectionDetailScreen(
+            title = albumName,
+            subtitle = if (isChart) "Apple Music Chart • ${albumSongs.size} Songs" else "Album • ${albumSongs.firstOrNull()?.artist ?: "Unknown"}",
+            songs = albumSongs,
+            favoriteIds = favoriteIds,
+            currentSongId = currentSongId,
+            onBack = { selectedLocalAlbum = null },
+            onSongSelected = { onSongSelected(it, albumSongs) },
+            onToggleFavorite = onFavoriteToggle,
+            onAddToPlaylist = onAddToPlaylist,
+            showShareButton = false
+        )
+        return
     }
 
     // Drill down to Online Playlist Details
@@ -183,22 +264,32 @@ fun LibraryScreen(
         return
     }
 
-    // Drill down to Online Artist Details
-    if (selectedOnlineArtist != null) {
-        val curArtist = selectedOnlineArtist!!
-        val isSaved = savedOnlineArtists.any { it.id == curArtist.id }
-        val artistItem = ArtistItem(
-            name = curArtist.name,
-            songCountText = "${curArtist.source.badgeText} • Saved",
-            artworkModel = curArtist.profileImageUrl,
-            isOnline = true,
-            artistId = curArtist.id
+    // Drill down to Artist Details
+    if (selectedArtist != null) {
+        val curArtist = selectedArtist!!
+        val savedArtistEntry = savedOnlineArtists.firstOrNull {
+            (curArtist.artistId.isNotBlank() && it.id == curArtist.artistId) ||
+                it.name.equals(curArtist.name, ignoreCase = true)
+        }
+        val isSaved = savedArtistEntry != null
+        val audience = formatArtistAudience(
+            curArtist.songCountText.takeIf { it.isNotBlank() && !it.contains("songs", ignoreCase = true) }
+                ?: onlineArtistAudiences[curArtist.artistId]
+                ?: onlineArtistAudiences[curArtist.name]
+                ?: YouTubeArtistRepositoryImpl.getCachedAudience(curArtist.name)
         )
         val localMatchingSongs = remember(curArtist.name, allSongs) {
             allSongs.filter { it.artist.contains(curArtist.name, ignoreCase = true) }
         }
+        val resolvedArtwork = curArtist.artworkModel
+            ?: onlineArtistPortraits[curArtist.name]
+            ?: YouTubeArtistRepositoryImpl.getCachedPortrait(curArtist.name)
+            ?: localMatchingSongs.firstOrNull()?.artworkUri
         ArtistDetailSheet(
-            artist = artistItem,
+            artist = curArtist.copy(
+                songCountText = audience ?: curArtist.songCountText,
+                artworkModel = resolvedArtwork
+            ),
             onlineSongs = artistDetailSongs,
             localSongs = localMatchingSongs,
             onlineAlbums = artistDetailAlbums,
@@ -206,13 +297,20 @@ fun LibraryScreen(
             isSavedInLibrary = isSaved,
             onToggleSaveToLibrary = {
                 if (isSaved) {
-                    onRemoveSavedOnlineArtist?.invoke(curArtist.id)
+                    savedArtistEntry?.let { onRemoveSavedOnlineArtist?.invoke(it.id) }
                 } else {
-                    onSaveOnlineArtist?.invoke(curArtist)
+                    val toSave = SavedOnlineArtist(
+                        id = curArtist.artistId.ifBlank { "local_${curArtist.name}" },
+                        name = curArtist.name,
+                        profileImageUrl = resolvedArtwork as? String,
+                        source = AudioSource.YOUTUBE,
+                        audienceText = audience
+                    )
+                    onSaveOnlineArtist?.invoke(toSave)
                 }
             },
             onDismiss = {
-                selectedOnlineArtist = null
+                selectedArtist = null
                 artistDetailSongs = emptyList()
                 artistDetailAlbums = emptyList()
             },
@@ -224,7 +322,7 @@ fun LibraryScreen(
                 } else if (localMatchingSongs.isNotEmpty()) {
                     onSongSelected(localMatchingSongs.first(), localMatchingSongs)
                 }
-                selectedOnlineArtist = null
+                selectedArtist = null
             },
             onShuffleAll = {
                 if (artistDetailSongs.isNotEmpty()) {
@@ -234,11 +332,12 @@ fun LibraryScreen(
                     val shuffled = localMatchingSongs.shuffled()
                     onSongSelected(shuffled.first(), shuffled)
                 }
-                selectedOnlineArtist = null
+                selectedArtist = null
             },
             onOpenOnlineAlbum = { album ->
                 selectedOnlinePlaylist = album
-            }
+            },
+            audienceText = audience
         )
         return
     }
@@ -288,14 +387,62 @@ fun LibraryScreen(
         }
     }
 
+    LaunchedEffect(Unit) {
+        ArtistArtworkCache.init(context)
+    }
+
     val artistsList = remember(libraryVisibleSongs, query) {
-        val grouped = libraryVisibleSongs.groupBy { it.artist }
+        val grouped = ArtistHelper.groupSongsByArtist(libraryVisibleSongs)
         if (query.isBlank()) {
-            grouped.entries.toList()
+            grouped
         } else {
-            grouped.entries.filter { (artistName, _) ->
+            grouped.filter { (artistName, _) ->
                 artistName.contains(query, ignoreCase = true)
-            }.toList()
+            }
+        }
+    }
+
+    LaunchedEffect(savedOnlineArtists) {
+        val artistsNeedingAudience = savedOnlineArtists.filter { artist ->
+            artist.audienceText.isNullOrBlank() &&
+            onlineArtistAudiences[artist.id] == null &&
+            YouTubeArtistRepositoryImpl.getCachedAudience(artist.name) == null
+        }
+        if (artistsNeedingAudience.isNotEmpty()) {
+            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                for (artist in artistsNeedingAudience) {
+                    try {
+                        val aud = youtubeArtistRepository.resolveArtistAudience(artist.name, artist.id)
+                        if (!aud.isNullOrBlank()) {
+                            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                                onlineArtistAudiences = onlineArtistAudiences + (artist.id to aud)
+                            }
+                        }
+                    } catch (_: Exception) {}
+                }
+            }
+        }
+    }
+
+    LaunchedEffect(artistsList) {
+        val missingArtists = artistsList.map { it.first }.filter { artistName ->
+            ArtistArtworkCache.get(artistName) == null &&
+            YouTubeArtistRepositoryImpl.getCachedPortrait(artistName) == null
+        }
+        if (missingArtists.isNotEmpty()) {
+            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                for (artistName in missingArtists) {
+                    try {
+                        val portraitUrl = youtubeArtistRepository.resolveArtistPortrait(artistName)
+                        if (portraitUrl != null) {
+                            ArtistArtworkCache.put(context, artistName, portraitUrl)
+                            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                                onlineArtistPortraits = onlineArtistPortraits + (artistName to portraitUrl)
+                            }
+                        }
+                    } catch (_: Exception) {}
+                }
+            }
         }
     }
 
@@ -343,78 +490,16 @@ fun LibraryScreen(
                     )
                 }
 
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    IconButton(onClick = onRefresh) {
-                        Icon(
-                            imageVector = Icons.Default.Refresh,
-                            contentDescription = "Refresh",
-                            tint = textColor.copy(alpha = 0.8f)
-                        )
-                    }
-                    IconButton(onClick = onOpenSettings) {
-                        Icon(
-                            imageVector = Icons.Default.Settings,
-                            contentDescription = "Settings",
-                            tint = textColor.copy(alpha = 0.8f)
-                        )
-                    }
+                IconButton(onClick = onOpenSettings) {
+                    Icon(
+                        imageVector = Icons.Default.Settings,
+                        contentDescription = "Settings",
+                        tint = textColor.copy(alpha = 0.8f)
+                    )
                 }
             }
 
-            Spacer(modifier = Modifier.height(14.dp))
-
-            // Quick Library Filter Search Box with Frosted Glass
-            OutlinedTextField(
-                value = query,
-                onValueChange = onQueryChange,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .frostedGlass(
-                        shape = RoundedCornerShape(18.dp),
-                        isDark = isDark,
-                        elevation = if (isDark) 6.dp else 2.dp,
-                        borderWidth = 1.1.dp,
-                        sheenAlpha = if (isDark) 0.16f else 0.35f
-                    ),
-                placeholder = {
-                    Text(
-                        "Filter ${selectedTab.label.lowercase()} in your collection...",
-                        color = if (isDark) Color.White.copy(alpha = 0.45f) else Color.Black.copy(alpha = 0.45f),
-                        fontSize = 14.sp
-                    )
-                },
-                leadingIcon = {
-                    Icon(
-                        imageVector = Icons.Default.Search,
-                        contentDescription = "Filter",
-                        tint = if (isDark) Color.White.copy(alpha = 0.6f) else Color.Black.copy(alpha = 0.5f)
-                    )
-                },
-                trailingIcon = {
-                    if (query.isNotBlank()) {
-                        IconButton(onClick = { onQueryChange("") }) {
-                            Icon(
-                                imageVector = Icons.Default.Close,
-                                contentDescription = "Clear",
-                                tint = textColor
-                            )
-                        }
-                    }
-                },
-                shape = RoundedCornerShape(18.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = Color.Transparent,
-                    unfocusedBorderColor = Color.Transparent,
-                    focusedContainerColor = Color.Transparent,
-                    unfocusedContainerColor = Color.Transparent
-                ),
-                singleLine = true
-            )
-
-            Spacer(modifier = Modifier.height(14.dp))
+            Spacer(modifier = Modifier.height(16.dp))
 
             // Segmented Category Tabs with Frosted Glass Pills (Songs | Albums | Artists | Playlists)
             Row(
@@ -611,7 +696,7 @@ fun LibraryScreen(
                                         subtitle = representativeSong?.artist ?: "Unknown Artist",
                                         artworkModel = representativeSong?.artworkUri,
                                         size = 150.dp,
-                                        onClick = { onAlbumSelected(albumName) }
+                                        onClick = { selectedLocalAlbum = (albumName to albumSongs) }
                                     )
                                 }
                             }
@@ -650,10 +735,22 @@ fun LibraryScreen(
                                 items(filteredOnlineArtists, key = { "saved_online_artist_${it.id}" }) { artist ->
                                     ArtistCard(
                                         name = artist.name,
-                                        songCountText = "${artist.source.badgeText} • Saved",
                                         artworkModel = artist.profileImageUrl,
                                         size = 110.dp,
-                                        onClick = { selectedOnlineArtist = artist }
+                                        onClick = {
+                                            val audience = formatArtistAudience(
+                                                artist.audienceText
+                                                    ?: onlineArtistAudiences[artist.id]
+                                                    ?: YouTubeArtistRepositoryImpl.getCachedAudience(artist.name)
+                                            )
+                                            selectedArtist = ArtistItem(
+                                                name = artist.name,
+                                                songCountText = audience.orEmpty(),
+                                                artworkModel = artist.profileImageUrl,
+                                                isOnline = true,
+                                                artistId = artist.id
+                                            )
+                                        }
                                     )
                                 }
                             }
@@ -666,14 +763,29 @@ fun LibraryScreen(
                                         )
                                     }
                                 }
-                                items(artistsList, key = { it.key }) { (artistName, artistSongs) ->
-                                    val cachedArtist = YouTubeArtistRepositoryImpl.getCachedArtist(artistName)
+                                items(artistsList, key = { "local_artist_${it.first}" }) { (artistName, artistSongs) ->
+                                    val portraitUrl = onlineArtistPortraits[artistName]
+                                        ?: ArtistArtworkCache.get(artistName)
+                                        ?: YouTubeArtistRepositoryImpl.getCachedPortrait(artistName)
+                                        ?: artistSongs.firstOrNull()?.artworkUri
                                     ArtistCard(
                                         name = artistName,
                                         songCountText = "${artistSongs.size} songs",
-                                        artworkModel = cachedArtist?.profileImageUrl,
+                                        artworkModel = portraitUrl,
                                         size = 110.dp,
-                                        onClick = { onArtistSelected(artistName) }
+                                        onClick = {
+                                            val cachedAudience = formatArtistAudience(
+                                                onlineArtistAudiences[artistName]
+                                                    ?: YouTubeArtistRepositoryImpl.getCachedAudience(artistName)
+                                            )
+                                            selectedArtist = ArtistItem(
+                                                name = artistName,
+                                                songCountText = cachedAudience ?: "${artistSongs.size} songs",
+                                                artworkModel = portraitUrl,
+                                                isOnline = false,
+                                                artistId = ""
+                                            )
+                                        }
                                     )
                                 }
                             }

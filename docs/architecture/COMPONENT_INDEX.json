@@ -326,7 +326,8 @@
       "name": "YouTube Artist Repository",
       "type": "repository",
       "paths": [
-        "app/src/main/java/com/aman/auramusic/online/network/repository/YouTubeArtistRepository.kt"
+        "app/src/main/java/com/aman/auramusic/online/network/repository/YouTubeArtistRepository.kt",
+        "app/src/main/java/com/aman/auramusic/util/ArtistHelper.kt"
       ],
       "responsibility": "Extracts curated artist discography, albums, top tracks, and artwork manifests from YouTube Music channels.",
       "symbols": [

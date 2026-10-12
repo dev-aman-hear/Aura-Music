@@ -53,6 +53,7 @@ fun CollectionDetailScreen(
     onAddCollectionToQueue: (() -> Unit)? = null,
     onAddCollectionToPlaylist: (() -> Unit)? = null,
     onFavoriteCollection: (() -> Unit)? = null,
+    showShareButton: Boolean = true,
 ) {
     val context = LocalContext.current
     val isDark = isSystemInDarkTheme()
@@ -88,21 +89,23 @@ fun CollectionDetailScreen(
                         )
                     }
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        IconButton(
-                            onClick = {
-                                val sendIntent = Intent().apply {
-                                    action = Intent.ACTION_SEND
-                                    putExtra(Intent.EXTRA_TEXT, "Check out $title on AuraMusic!")
-                                    type = "text/plain"
+                        if (showShareButton) {
+                            IconButton(
+                                onClick = {
+                                    val sendIntent = Intent().apply {
+                                        action = Intent.ACTION_SEND
+                                        putExtra(Intent.EXTRA_TEXT, "Check out $title on AuraMusic!")
+                                        type = "text/plain"
+                                    }
+                                    context.startActivity(Intent.createChooser(sendIntent, "Share"))
                                 }
-                                context.startActivity(Intent.createChooser(sendIntent, "Share"))
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Share,
+                                    contentDescription = "Share",
+                                    tint = if (isDark) Color.White else Color.Black
+                                )
                             }
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Share,
-                                contentDescription = "Share",
-                                tint = if (isDark) Color.White else Color.Black
-                            )
                         }
 
                         Box {

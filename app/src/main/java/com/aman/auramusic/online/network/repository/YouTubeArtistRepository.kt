@@ -32,11 +32,12 @@ data class YouTubeArtist(
 )
 
 /**
- * Holds songs and genuine releases (albums, singles, EPs) extracted from an artist's browse page.
+ * Holds songs, genuine releases, and monthly audience extracted from an artist's browse page.
  */
 data class ArtistCatalogue(
     val songs: List<OnlineSong> = emptyList(),
-    val albums: List<OnlinePlaylist> = emptyList()
+    val albums: List<OnlinePlaylist> = emptyList(),
+    val subscriberCountText: String? = null
 )
 
 /**
@@ -47,6 +48,8 @@ interface YouTubeArtistRepository {
     suspend fun searchArtists(query: String): List<YouTubeArtist>
     suspend fun getArtistSongs(artistName: String, artistId: String? = null): List<OnlineSong>
     suspend fun getArtistCatalogue(artistName: String, artistId: String? = null): ArtistCatalogue
+    suspend fun resolveArtistPortrait(artistName: String): String?
+    suspend fun resolveArtistAudience(artistName: String, artistId: String? = null): String?
 }
 
 @Singleton
@@ -118,6 +121,67 @@ class YouTubeArtistRepositoryImpl @Inject constructor(
     override suspend fun getArtistSongs(artistName: String, artistId: String?): List<OnlineSong> =
         getArtistCatalogue(artistName, artistId).songs
 
+    override suspend fun resolveArtistPortrait(artistName: String): String? = withContext(Dispatchers.IO) {
+        val cleanName = artistName.trim()
+        if (cleanName.isBlank()) return@withContext null
+
+        getCachedPortrait(cleanName)?.let { return@withContext it }
+
+        try {
+            val results = searchArtists(cleanName)
+            val entity = results.firstOrNull {
+                it.name.trim().equals(cleanName, ignoreCase = true)
+            } ?: results.firstOrNull {
+                it.name.contains(cleanName, ignoreCase = true) || cleanName.contains(it.name, ignoreCase = true)
+            } ?: results.firstOrNull()
+
+            val profileUrl = entity?.profileImageUrl?.takeIf { it.isNotBlank() }
+            if (profileUrl != null) {
+                putCachedPortrait(cleanName, profileUrl)
+                return@withContext profileUrl
+            }
+        } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
+        }
+        null
+    }
+
+    override suspend fun resolveArtistAudience(artistName: String, artistId: String?): String? = withContext(Dispatchers.IO) {
+        val cleanName = artistName.trim()
+        if (cleanName.isBlank()) return@withContext null
+
+        getCachedAudience(cleanName)?.let { return@withContext it }
+
+        try {
+            val browseId = artistId?.trim().orEmpty()
+            if (browseId.isNotBlank() && !browseId.startsWith("local_") && !browseId.startsWith("yt_artist_")) {
+                val catalogue = getArtistCatalogue(cleanName, browseId)
+                val aud = catalogue.subscriberCountText?.takeIf {
+                    !it.equals("YouTube Music", ignoreCase = true) && !it.equals("YouTube Music Artist", ignoreCase = true)
+                }
+                if (!aud.isNullOrBlank()) {
+                    putCachedAudience(cleanName, aud)
+                    return@withContext aud
+                }
+            }
+
+            val results = searchArtists(cleanName)
+            val entity = results.firstOrNull { it.name.trim().equals(cleanName, ignoreCase = true) }
+                ?: results.firstOrNull { it.name.contains(cleanName, ignoreCase = true) || cleanName.contains(it.name, ignoreCase = true) }
+                ?: results.firstOrNull()
+            val aud = entity?.subscriberCountText?.takeIf {
+                !it.equals("YouTube Music", ignoreCase = true) && !it.equals("YouTube Music Artist", ignoreCase = true)
+            }
+            if (!aud.isNullOrBlank()) {
+                putCachedAudience(cleanName, aud)
+                return@withContext aud
+            }
+        } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
+        }
+        null
+    }
+
     override suspend fun getArtistCatalogue(artistName: String, artistId: String?): ArtistCatalogue = withContext(Dispatchers.IO) {
         val browseId = artistId?.trim().orEmpty()
         // A real YouTube Music browse ID is required. Never substitute a broad text search:
@@ -157,7 +221,11 @@ class YouTubeArtistRepositoryImpl @Inject constructor(
                 val json = response.body?.string().orEmpty()
                 val tracks = parseArtistBrowseTracks(json, artistName)
                 val albums = parseArtistBrowseAlbums(json)
-                ArtistCatalogue(tracks, albums)
+                val audience = parseArtistBrowseAudience(json)
+                if (!audience.isNullOrBlank()) {
+                    putCachedAudience(artistName, audience)
+                }
+                ArtistCatalogue(tracks, albums, audience)
             }
         } catch (e: Exception) {
             if (e is CancellationException) throw e
@@ -230,6 +298,44 @@ class YouTubeArtistRepositoryImpl @Inject constructor(
         private val artistSongsCache = LruCache<String, List<OnlineSong>>(100)
         private val artistCatalogueCache = LruCache<String, ArtistCatalogue>(100)
         private val artistSearchCache = LruCache<String, List<YouTubeArtist>>(50)
+
+        private val artistPortraitCache = java.util.concurrent.ConcurrentHashMap<String, String>()
+        private val artistAudienceCache = java.util.concurrent.ConcurrentHashMap<String, String>()
+
+        fun getCachedPortrait(artistName: String): String? {
+            val clean = artistName.trim().lowercase()
+            if (clean.isBlank()) return null
+            artistPortraitCache[clean]?.let { return it }
+            return getCachedArtist(artistName)?.profileImageUrl
+        }
+
+        fun putCachedPortrait(artistName: String, url: String) {
+            val clean = artistName.trim().lowercase()
+            if (clean.isNotBlank() && url.isNotBlank()) {
+                artistPortraitCache[clean] = url
+            }
+        }
+
+        fun getCachedAudience(artistName: String): String? {
+            val clean = artistName.trim().lowercase()
+            if (clean.isBlank()) return null
+            artistAudienceCache[clean]?.let { return it }
+            val fromArtist = getCachedArtist(artistName)?.subscriberCountText?.takeIf {
+                !it.equals("YouTube Music", ignoreCase = true) && !it.equals("YouTube Music Artist", ignoreCase = true)
+            }
+            if (fromArtist != null) {
+                artistAudienceCache[clean] = fromArtist
+                return fromArtist
+            }
+            return null
+        }
+
+        fun putCachedAudience(artistName: String, audience: String) {
+            val clean = artistName.trim().lowercase()
+            if (clean.isNotBlank() && audience.isNotBlank()) {
+                artistAudienceCache[clean] = audience
+            }
+        }
 
         fun getCachedArtist(artistName: String): YouTubeArtist? {
             val clean = artistName.trim().lowercase()
@@ -456,6 +562,71 @@ class YouTubeArtistRepositoryImpl @Inject constructor(
                 return emptyList()
             }
             return result
+        }
+
+        /**
+         * Extracts monthly audience or subscriber text from the artist header/browse response.
+         */
+        fun parseArtistBrowseAudience(jsonString: String): String? {
+            try {
+                val root = JsonParser.parseString(jsonString)
+                fun textOf(element: com.google.gson.JsonElement?): String {
+                    if (element == null || !element.isJsonObject) return ""
+                    val obj = element.asJsonObject
+                    obj.get("simpleText")?.let { return it.asString.replace('\u00A0', ' ').trim() }
+                    return obj.getAsJsonArray("runs")?.mapNotNull { run ->
+                        run.asJsonObject.get("text")?.asString
+                    }?.joinToString("")?.replace('\u00A0', ' ')?.trim().orEmpty()
+                }
+
+                var foundAudience: String? = null
+                fun walk(element: com.google.gson.JsonElement) {
+                    if (foundAudience != null) return
+                    if (element.isJsonArray) {
+                        element.asJsonArray.forEach(::walk)
+                        return
+                    }
+                    if (!element.isJsonObject) return
+                    val obj = element.asJsonObject
+
+                    // 1. musicImmersiveHeaderRenderer / musicVisualHeaderRenderer
+                    val header = obj.getAsJsonObject("musicImmersiveHeaderRenderer")
+                        ?: obj.getAsJsonObject("musicVisualHeaderRenderer")
+                        ?: obj.getAsJsonObject("musicHeaderRenderer")
+                    if (header != null) {
+                        val subText = textOf(header.getAsJsonObject("subscriptionButton"))
+                        val desc = textOf(header.getAsJsonObject("description"))
+                        val sub = textOf(header.getAsJsonObject("subtitle"))
+                        val runs = header.getAsJsonArray("straplineTextOne")
+                            ?: header.getAsJsonArray("straplineThumbnail")
+                        for (text in listOf(sub, desc, subText)) {
+                            if (text.contains("monthly audience", ignoreCase = true) ||
+                                text.contains("subscribers", ignoreCase = true)
+                            ) {
+                                foundAudience = text
+                                return
+                            }
+                        }
+                    }
+
+                    // Check subscriptionButton or subscriberCountText
+                    val subBtn = obj.getAsJsonObject("subscribeButtonRenderer")
+                    if (subBtn != null) {
+                        val count = textOf(subBtn.getAsJsonObject("subscriberCountText"))
+                        if (count.isNotBlank()) {
+                            foundAudience = count
+                            return
+                        }
+                    }
+
+                    obj.entrySet().forEach { (_, child) -> walk(child) }
+                }
+
+                walk(root)
+                return foundAudience
+            } catch (_: Exception) {
+                return null
+            }
         }
 
         fun parseInnerTubeArtistResults(jsonString: String): List<YouTubeArtist> {

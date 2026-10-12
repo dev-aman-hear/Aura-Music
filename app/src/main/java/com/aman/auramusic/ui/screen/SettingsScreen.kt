@@ -113,22 +113,11 @@ fun SettingsScreen(
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         val initial = remember(username) { username.trim().firstOrNull()?.uppercase() ?: "A" }
-                        Surface(
-                            modifier = Modifier
-                                .size(42.dp)
-                                .shadow(3.dp, CircleShape),
-                            shape = CircleShape,
-                            color = MaterialTheme.colorScheme.primary
-                        ) {
-                            Box(contentAlignment = Alignment.Center) {
-                                Text(
-                                    text = initial,
-                                    color = Color.White,
-                                    fontSize = 20.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
-                            }
-                        }
+                        com.aman.auramusic.ui.screen.hometest.ClearGlassAvatarBadge(
+                            initial = initial,
+                            onClick = {},
+                            size = 42.dp
+                        )
                         Spacer(modifier = Modifier.width(12.dp))
                         Text(
                             text = "Settings",

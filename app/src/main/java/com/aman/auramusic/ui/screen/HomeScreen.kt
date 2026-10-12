@@ -69,6 +69,9 @@ import com.aman.auramusic.online.network.repository.OnlineMusicRepository
 import com.aman.auramusic.ui.component.AlbumCard
 import com.aman.auramusic.ui.component.ArtistCard
 import com.aman.auramusic.ui.component.AuraArtwork
+import com.aman.auramusic.online.network.repository.YouTubeArtistRepositoryImpl
+import com.aman.auramusic.util.ArtistArtworkCache
+import com.aman.auramusic.util.ArtistHelper
 import com.aman.auramusic.ui.component.AuraEmptyState
 import com.aman.auramusic.ui.component.SectionHeader
 import com.aman.auramusic.ui.component.SongOptionsDialog
@@ -134,9 +137,8 @@ fun HomeScreen(
     }
 
     val topArtistsList = remember(songs) {
-        songs.groupBy { it.artist }
-            .entries
-            .sortedByDescending { it.value.size }
+        ArtistHelper.groupSongsByArtist(songs)
+            .sortedByDescending { it.second.size }
             .take(10)
     }
     val recentlyAddedSongs = remember(songs) {
@@ -595,11 +597,14 @@ fun HomeScreen(
                             contentPadding = PaddingValues(horizontal = 20.dp),
                             horizontalArrangement = Arrangement.spacedBy(14.dp)
                         ) {
-                            items(topArtistsList, key = { "artist_${it.key}" }) { (artistName, artistTracks) ->
+                            items(topArtistsList, key = { "artist_${it.first}" }) { (artistName, artistTracks) ->
+                                val portrait = ArtistArtworkCache.get(artistName)
+                                    ?: YouTubeArtistRepositoryImpl.getCachedPortrait(artistName)
+                                    ?: artistTracks.firstOrNull()?.artworkUri
                                 ArtistCard(
                                     name = artistName,
                                     songCountText = "${artistTracks.size} songs",
-                                    artworkModel = artistTracks.firstOrNull()?.artworkUri,
+                                    artworkModel = portrait,
                                     onClick = { onArtistSelected(artistName) }
                                 )
                             }

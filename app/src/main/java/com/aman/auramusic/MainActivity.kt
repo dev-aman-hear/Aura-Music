@@ -147,6 +147,12 @@ import com.aman.auramusic.ui.screen.PlayerScreen
 import com.aman.auramusic.ui.screen.SearchScreen
 import com.aman.auramusic.ui.screen.SettingsScreen
 import com.aman.auramusic.ui.screen.CollectionDetailScreen
+import com.aman.auramusic.ui.screen.hometest.ArtistDetailSheet
+import com.aman.auramusic.ui.screen.hometest.ArtistItem
+import com.aman.auramusic.online.network.repository.YouTubeArtistRepositoryImpl
+import com.aman.auramusic.util.ArtistArtworkCache
+import com.aman.auramusic.online.model.SavedOnlineArtist
+import com.aman.auramusic.online.model.AudioSource
 import com.aman.auramusic.ui.component.BottomNavBar
 import com.aman.auramusic.ui.component.AppTab
 import com.aman.auramusic.ui.component.MadeForYouCard
@@ -659,25 +665,74 @@ fun MusicScreen(musicViewModel: MusicViewModel) {
                                 onAddToQueue = { playerViewModel.addToQueue(it) },
                                 onAddCollectionToQueue = { playerViewModel.addToQueue(albumSongs) },
                                 onAddCollectionToPlaylist = { songsToAddToPlaylist = albumSongs },
-                                onFavoriteCollection = { albumSongs.forEach { musicViewModel.toggleFavorite(it.id, true) } }
+                                onFavoriteCollection = { albumSongs.forEach { musicViewModel.toggleFavorite(it.id, true) } },
+                                showShareButton = false
                             )
                         }
                         selectedArtistName != null -> {
-                            val artistSongs = songs.filter { it.artist == selectedArtistName }
-                            CollectionDetailScreen(
-                                title = selectedArtistName!!,
-                                subtitle = "${artistSongs.size} songs",
-                                songs = artistSongs,
-                                favoriteIds = favoriteIds,
-                                currentSongId = playerViewModel.currentSong?.id,
-                                onBack = { selectedArtistName = null },
-                                onSongSelected = { playSong(it, artistSongs) },
-                                onToggleFavorite = { song -> musicViewModel.toggleFavorite(song.id, song.id !in favoriteIds) },
-                                onAddToPlaylist = { songToAddToPlaylist = it },
-                                onAddToQueue = { playerViewModel.addToQueue(it) },
-                                onAddCollectionToQueue = { playerViewModel.addToQueue(artistSongs) },
-                                onAddCollectionToPlaylist = { songsToAddToPlaylist = artistSongs },
-                                onFavoriteCollection = { artistSongs.forEach { musicViewModel.toggleFavorite(it.id, true) } }
+                            val artistName = selectedArtistName!!
+                            val artistSongs = remember(artistName, songs) {
+                                songs.filter { 
+                                    com.aman.auramusic.util.ArtistHelper.songHasArtist(it, artistName) 
+                                }
+                            }
+                            val savedArtistEntry = savedOnlineArtists.firstOrNull {
+                                it.name.equals(artistName, ignoreCase = true)
+                            }
+                            val isArtistSaved = savedArtistEntry != null
+                            val portrait = remember(artistName, artistSongs) {
+                                ArtistArtworkCache.get(artistName)
+                                    ?: YouTubeArtistRepositoryImpl.getCachedPortrait(artistName)
+                                    ?: artistSongs.firstOrNull()?.artworkUri
+                            }
+                            val audience = remember(artistName) {
+                                YouTubeArtistRepositoryImpl.getCachedAudience(artistName)
+                            }
+                            ArtistDetailSheet(
+                                artist = ArtistItem(
+                                    name = artistName,
+                                    songCountText = audience.orEmpty(),
+                                    artworkModel = portrait,
+                                    isOnline = false,
+                                    artistId = savedArtistEntry?.id.orEmpty()
+                                ),
+                                onlineSongs = emptyList(),
+                                localSongs = artistSongs,
+                                onlineAlbums = emptyList(),
+                                isLoading = false,
+                                isSavedInLibrary = isArtistSaved,
+                                audienceText = audience,
+                                onToggleSaveToLibrary = {
+                                    if (isArtistSaved) {
+                                        savedArtistEntry?.let { musicViewModel.removeOnlineArtistFromLibrary(it.id) }
+                                    } else {
+                                        musicViewModel.saveOnlineArtistToLibrary(
+                                            SavedOnlineArtist(
+                                                id = "local_$artistName",
+                                                name = artistName,
+                                                profileImageUrl = portrait as? String,
+                                                source = AudioSource.YOUTUBE,
+                                                audienceText = audience
+                                            )
+                                        )
+                                    }
+                                },
+                                onDismiss = { selectedArtistName = null },
+                                onPlaySong = { song, queue -> playSong(song, queue) },
+                                onPlayOnlineSong = { song, queue -> playOnlineSong(song, queue) },
+                                onPlayAll = {
+                                    if (artistSongs.isNotEmpty()) {
+                                        playSong(artistSongs.first(), artistSongs)
+                                    }
+                                    selectedArtistName = null
+                                },
+                                onShuffleAll = {
+                                    if (artistSongs.isNotEmpty()) {
+                                        val shuffled = artistSongs.shuffled()
+                                        playSong(shuffled.first(), shuffled)
+                                    }
+                                    selectedArtistName = null
+                                }
                             )
                         }
                         else -> {
