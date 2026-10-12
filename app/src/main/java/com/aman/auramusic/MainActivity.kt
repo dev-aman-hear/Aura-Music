@@ -132,6 +132,8 @@ import androidx.compose.material3.Divider
 import com.aman.auramusic.ui.screen.home.HomeScreen
 import com.aman.auramusic.ui.screen.OnlineScreen
 import com.aman.auramusic.ui.screen.LibraryScreen
+import com.aman.auramusic.ui.screen.LibraryTab
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.DisposableEffect
 import com.aman.auramusic.online.player.OnlinePlaybackManager
 import com.aman.auramusic.online.model.OnlineSong
@@ -270,6 +272,12 @@ fun MusicScreen(musicViewModel: MusicViewModel) {
     var hasAttemptedRestore by remember { mutableStateOf(false) }
 
     var selectedTab by remember { mutableStateOf(AppTab.Home) }
+    var selectedLibraryTab by rememberSaveable(
+        stateSaver = androidx.compose.runtime.saveable.Saver(
+            save = { it.name },
+            restore = { name -> runCatching { LibraryTab.valueOf(name) }.getOrDefault(LibraryTab.SONGS) }
+        )
+    ) { mutableStateOf(LibraryTab.SONGS) }
     var homeReselectKey by remember { mutableIntStateOf(0) }
     var showPlayer by remember { mutableStateOf(false) }
     var showSettings by remember { mutableStateOf(false) }
@@ -760,11 +768,15 @@ fun MusicScreen(musicViewModel: MusicViewModel) {
                                     if (isArtistSaved) {
                                         savedArtistEntry?.let { musicViewModel.removeOnlineArtistFromLibrary(it.id) }
                                     } else {
+                                        val cachedArtist = YouTubeArtistRepositoryImpl.getCachedArtist(artistName)
+                                        val finalId = cachedArtist?.id?.takeIf { it.isNotBlank() }
+                                            ?: savedArtistEntry?.id?.takeIf { it.isNotBlank() }
+                                            ?: "artist_${artistName.trim().lowercase()}"
                                         musicViewModel.saveOnlineArtistToLibrary(
                                             SavedOnlineArtist(
-                                                id = "local_$artistName",
+                                                id = finalId,
                                                 name = artistName,
-                                                profileImageUrl = portrait as? String,
+                                                profileImageUrl = (cachedArtist?.profileImageUrl ?: portrait) as? String,
                                                 source = AudioSource.YOUTUBE,
                                                 audienceText = audience
                                             )
@@ -832,9 +844,17 @@ fun MusicScreen(musicViewModel: MusicViewModel) {
                                         playOnlineSong(onlineSong, queue)
                                     },
                                     onOpenSettings = { showSettings = true },
+                                    savedOnlinePlaylists = savedOnlinePlaylists,
+                                    onSaveOnlinePlaylist = { musicViewModel.saveOnlinePlaylistToLibrary(it) },
+                                    onRemoveSavedOnlinePlaylist = { musicViewModel.removeOnlinePlaylistFromLibrary(it) },
+                                    savedOnlineAlbums = savedOnlineAlbums,
+                                    onSaveOnlineAlbum = { musicViewModel.saveOnlineAlbumToLibrary(it) },
+                                    onRemoveSavedOnlineAlbum = { musicViewModel.removeOnlineAlbumFromLibrary(it) },
                                     onAddOnlineSongToPlaylist = { onlineSongToAddToPlaylist = it }
                                 )
                                 AppTab.Library -> LibraryScreen(
+                                    selectedTab = selectedLibraryTab,
+                                    onTabSelected = { selectedLibraryTab = it },
                                     songs = filteredSongs,
                                     allSongs = songs,
                                     favoriteSongs = favoriteSongs,
@@ -889,7 +909,8 @@ fun MusicScreen(musicViewModel: MusicViewModel) {
                                     onlinePlaybackManager = onlinePlaybackManager,
                                     onOnlineSongSelected = { onlineSong, queue ->
                                         playOnlineSong(onlineSong, queue)
-                                    }
+                                    },
+                                    onAddOnlineSongToPlaylist = { onlineSongToAddToPlaylist = it }
                                 )
                             }
                         }

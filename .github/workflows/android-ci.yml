@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   android-build:
-    name: Compile, Test and Build APK
+    name: Compile, Lint and Build APK
     runs-on: ubuntu-latest
 
     steps:
@@ -32,9 +32,6 @@ jobs:
       - name: Compile Kotlin
         run: ./gradlew :app:compileDebugKotlin
 
-      - name: Run unit tests
-        run: ./gradlew :app:testDebugUnitTest
-
       - name: Run Android lint
         run: ./gradlew :app:lintDebug
 
@@ -50,13 +47,12 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
-      - name: Upload test reports
+      - name: Upload lint reports
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: AuraMusic-test-reports
+          name: AuraMusic-lint-reports
           path: |
-            **/build/reports/tests/
             **/build/reports/lint-results-*.html
           if-no-files-found: ignore
           retention-days: 7

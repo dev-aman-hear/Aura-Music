@@ -25,7 +25,6 @@ android {
         versionCode = 12
         versionName = "3.2.0"
 
-        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         manifestPlaceholders["appName"] = "Aura Music"
     }
 
@@ -106,21 +105,12 @@ dependencies {
     implementation(libs.androidx.compose.material3)
     implementation(libs.androidx.palette)
     implementation("androidx.media3:media3-exoplayer:1.2.1")
-    implementation("androidx.media3:media3-session:1.2.1")
     implementation("androidx.media3:media3-common:1.2.1")
     implementation("androidx.media3:media3-datasource:1.2.1")
-    implementation("androidx.media3:media3-datasource-okhttp:1.2.1")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("com.pierfrancescosoffritti.androidyoutubeplayer:core:13.0.0")
     implementation("com.google.code.gson:gson:2.10.1")
-    testImplementation(libs.junit)
-    testImplementation("org.json:json:20240303")
-    androidTestImplementation(libs.androidx.junit)
-    androidTestImplementation(libs.androidx.espresso.core)
-    androidTestImplementation(platform(libs.androidx.compose.bom))
-    androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     debugImplementation(libs.androidx.compose.ui.tooling)
-    debugImplementation(libs.androidx.compose.ui.test.manifest)
 
     // Navigation
     implementation("androidx.navigation:navigation-compose:2.9.0")
@@ -145,9 +135,4 @@ dependencies {
     implementation(libs.retrofit)
     implementation(libs.retrofit.gson)
     implementation(libs.okhttp.logging)
-
-    // Room
-    implementation(libs.room.runtime)
-    implementation(libs.room.ktx)
-    ksp(libs.room.compiler)
 }

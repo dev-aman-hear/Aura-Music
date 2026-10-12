@@ -148,6 +148,7 @@ fun SearchScreen(
     onArtistSelected: (String) -> Unit,
     onlinePlaybackManager: OnlinePlaybackManager? = null,
     onOnlineSongSelected: (OnlineSong, List<OnlineSong>) -> Unit = { _, _ -> },
+    onAddOnlineSongToPlaylist: ((OnlineSong) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val isDark = LocalIsDark.current
@@ -754,7 +755,8 @@ fun SearchScreen(
                                 onlineSong = onlineSong,
                                 isPlaying = isPlaying,
                                 onClick = { onOnlineSongSelected(onlineSong, onlineResults) },
-                                onPlayNow = { onOnlineSongSelected(onlineSong, onlineResults) }
+                                onPlayNow = { onOnlineSongSelected(onlineSong, onlineResults) },
+                                onAddToPlaylist = onAddOnlineSongToPlaylist?.let { cb -> { cb(onlineSong) } }
                             )
                         }
                     }
@@ -821,7 +823,8 @@ fun SearchScreen(
                                     onlineSong = onlineSong,
                                     isPlaying = isPlaying,
                                     onClick = { onOnlineSongSelected(onlineSong, artistOnlineSongs) },
-                                    onPlayNow = { onOnlineSongSelected(onlineSong, artistOnlineSongs) }
+                                    onPlayNow = { onOnlineSongSelected(onlineSong, artistOnlineSongs) },
+                                    onAddToPlaylist = onAddOnlineSongToPlaylist?.let { cb -> { cb(onlineSong) } }
                                 )
                             }
                         }
@@ -884,7 +887,8 @@ fun SearchScreen(
                                     onlineSong = onlineSong,
                                     isPlaying = isPlaying,
                                     onClick = { onOnlineSongSelected(onlineSong, albumOnlineSongs) },
-                                    onPlayNow = { onOnlineSongSelected(onlineSong, albumOnlineSongs) }
+                                    onPlayNow = { onOnlineSongSelected(onlineSong, albumOnlineSongs) },
+                                    onAddToPlaylist = onAddOnlineSongToPlaylist?.let { cb -> { cb(onlineSong) } }
                                 )
                             }
                         }

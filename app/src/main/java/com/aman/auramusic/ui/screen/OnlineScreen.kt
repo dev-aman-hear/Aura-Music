@@ -227,6 +227,12 @@ fun OnlineScreen(
     onlinePlaybackManager: OnlinePlaybackManager,
     onOnlineSongSelected: (OnlineSong, List<OnlineSong>) -> Unit,
     onOpenSettings: () -> Unit,
+    savedOnlinePlaylists: List<OnlinePlaylist> = emptyList(),
+    onSaveOnlinePlaylist: ((OnlinePlaylist) -> Unit)? = null,
+    onRemoveSavedOnlinePlaylist: ((String) -> Unit)? = null,
+    savedOnlineAlbums: List<OnlinePlaylist> = emptyList(),
+    onSaveOnlineAlbum: ((OnlinePlaylist) -> Unit)? = null,
+    onRemoveSavedOnlineAlbum: ((String) -> Unit)? = null,
     onAddOnlineSongToPlaylist: ((OnlineSong) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
@@ -766,14 +772,34 @@ fun OnlineScreen(
             }
 
             if (selectedCollection != null) {
+                val cur = selectedCollection!!
+                val isSavedAlbum = savedOnlineAlbums.any { it.id == cur.id }
+                val isSavedPlaylist = savedOnlinePlaylists.any { it.id == cur.id }
+                val isSaved = isSavedAlbum || isSavedPlaylist
                 OnlinePlaylistDetailScreen(
-                    playlist = selectedCollection!!,
+                    playlist = cur,
                     songs = selectedCollectionSongs,
                     isLoading = false,
+                    isSavedInLibrary = isSaved,
+                    onToggleSaveToLibrary = {
+                        if (isSaved) {
+                            if (isSavedAlbum) onRemoveSavedOnlineAlbum?.invoke(cur.id)
+                            if (isSavedPlaylist) onRemoveSavedOnlinePlaylist?.invoke(cur.id)
+                        } else {
+                            val playlistToSave = if (selectedCollectionSongs.isNotEmpty()) {
+                                cur.copy(songs = selectedCollectionSongs)
+                            } else cur
+                            if (cur.id.startsWith("ytmusic:MPRE") || cur.id.startsWith("album_")) {
+                                onSaveOnlineAlbum?.invoke(playlistToSave)
+                            } else {
+                                onSaveOnlinePlaylist?.invoke(playlistToSave)
+                            }
+                        }
+                    },
                     onBack = { selectedCollection = null },
                     onSongSelected = onOnlineSongSelected,
                     onAddOnlineSongToPlaylist = onAddOnlineSongToPlaylist,
-                    showMenuButton = false,
+                    showMenuButton = true,
                     modifier = Modifier.fillMaxSize()
                 )
             }

@@ -202,7 +202,18 @@ class OnlineMusicRepository(
     /** Load tracks by the YouTube Music collection's browse ID. */
     suspend fun getYouTubeMusicCollectionSongs(
         collection: com.aman.auramusic.online.model.OnlinePlaylist
-    ): List<OnlineSong> = pipedService.getMusicCollectionSongs(collection)
+    ): List<OnlineSong> {
+        val tracks = pipedService.getMusicCollectionSongs(collection)
+        if (tracks.isNotEmpty()) return tracks
+        return try {
+            val cleanTitle = collection.title.replace("Album", "").replace("Playlist", "").trim()
+            val query = if (cleanTitle.isNotBlank()) cleanTitle else collection.title
+            val found = pipedService.searchSongs(query)
+            if (found.isNotEmpty()) found else search(query, AudioSource.ALL)
+        } catch (_: Exception) {
+            emptyList()
+        }
+    }
     suspend fun getCuratedPlaylists(source: AudioSource = AudioSource.ALL): List<com.aman.auramusic.online.model.OnlinePlaylist> {
         val now = System.currentTimeMillis()
         playlistsCache[source]?.let { (timestamp, cached) ->
@@ -249,7 +260,12 @@ class OnlineMusicRepository(
     suspend fun getPlaylistSongs(playlist: com.aman.auramusic.online.model.OnlinePlaylist): List<OnlineSong> {
         playlistSongsCache.get(playlist.id)?.let { return it }
 
-        val songs = if (playlist.id.contains("ytmusic:") || (playlist.source == AudioSource.YOUTUBE && !playlist.id.startsWith("yt_"))) {
+        if (playlist.songs.isNotEmpty()) {
+            playlistSongsCache.put(playlist.id, playlist.songs)
+            return playlist.songs
+        }
+
+        var songs = if (playlist.id.contains("ytmusic:") || (playlist.source == AudioSource.YOUTUBE && !playlist.id.startsWith("yt_"))) {
             pipedService.getMusicCollectionSongs(playlist)
         } else if (playlist.id.startsWith("yt_")) {
             pipedService.searchSongs(playlist.title)
@@ -260,6 +276,21 @@ class OnlineMusicRepository(
             if (list.isEmpty()) {
                 jioSaavnService.searchSongs(playlist.title, limit = 20)
             } else list
+        }
+
+        if (songs.isEmpty() && playlist.title.isNotBlank()) {
+            val cleanTitle = playlist.title.replace("Album", "").replace("Playlist", "").trim()
+            val query = if (cleanTitle.isNotBlank()) cleanTitle else playlist.title
+            songs = try {
+                val found = pipedService.searchSongs(query)
+                if (found.isNotEmpty()) found else search(query, AudioSource.ALL)
+            } catch (_: Exception) {
+                try {
+                    search(query, AudioSource.ALL)
+                } catch (_: Exception) {
+                    emptyList()
+                }
+            }
         }
 
         if (songs.isNotEmpty()) {

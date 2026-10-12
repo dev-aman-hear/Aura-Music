@@ -116,16 +116,12 @@ fun LibraryScreen(
     onSaveOnlineAlbum: ((OnlinePlaylist) -> Unit)? = null,
     onRemoveSavedOnlineAlbum: ((String) -> Unit)? = null,
     onAddOnlineSongToPlaylist: ((OnlineSong) -> Unit)? = null,
+    selectedTab: LibraryTab = LibraryTab.SONGS,
+    onTabSelected: (LibraryTab) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
     val isDark = LocalIsDark.current
-    var selectedTab by rememberSaveable(
-        stateSaver = androidx.compose.runtime.saveable.Saver(
-            save = { it.name },
-            restore = { name -> runCatching { LibraryTab.valueOf(name) }.getOrDefault(LibraryTab.SONGS) }
-        )
-    ) { mutableStateOf(LibraryTab.SONGS) }
     var selectedLocalAlbum by remember { mutableStateOf<Pair<String, List<Song>>?>(null) }
     var showAllPlaylists by remember { mutableStateOf(false) }
 
@@ -167,7 +163,7 @@ fun LibraryScreen(
             isArtistDetailLoading = true
             try {
                 var browseId = artist.artistId
-                if (browseId.isBlank() || browseId.startsWith("local_")) {
+                if (browseId.isBlank() || browseId.startsWith("local_") || browseId.startsWith("artist_")) {
                     val searchResults = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
                         try {
                             youtubeArtistRepository.searchArtists(artist.name)
@@ -175,15 +171,22 @@ fun LibraryScreen(
                             emptyList()
                         }
                     }
-                    val found = searchResults.firstOrNull { it.name.equals(artist.name, ignoreCase = true) }
+                    val found = searchResults.firstOrNull { 
+                        it.name.equals(artist.name, ignoreCase = true) ||
+                        it.name.contains(artist.name, ignoreCase = true) ||
+                        artist.name.contains(it.name, ignoreCase = true)
+                    } ?: searchResults.firstOrNull()
                     if (found != null && found.id.isNotBlank() && !found.id.startsWith("local_")) {
                         browseId = found.id
                         if (!found.subscriberCountText.isNullOrBlank()) {
                             onlineArtistAudiences = onlineArtistAudiences + (found.id to found.subscriberCountText) + (artist.name to found.subscriberCountText)
                         }
+                        if (!found.profileImageUrl.isNullOrBlank()) {
+                            onlineArtistPortraits = onlineArtistPortraits + (found.id to found.profileImageUrl) + (artist.name to found.profileImageUrl)
+                        }
                     }
                 }
-                val catalogue = if (browseId.isNotBlank() && !browseId.startsWith("local_")) {
+                val catalogue = if (browseId.isNotBlank() && !browseId.startsWith("local_") && !browseId.startsWith("artist_")) {
                     kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
                         try {
                             youtubeArtistRepository.getArtistCatalogue(artist.name, browseId)
@@ -192,8 +195,31 @@ fun LibraryScreen(
                         }
                     }
                 } else com.aman.auramusic.online.network.repository.ArtistCatalogue()
-                artistDetailSongs = catalogue.songs
-                artistDetailAlbums = catalogue.albums
+                
+                var songs = catalogue.songs
+                if (songs.isEmpty()) {
+                    songs = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                        try {
+                            val directOnline = onlineRepository.search(artist.name, AudioSource.ALL)
+                            if (directOnline.isNotEmpty()) directOnline else onlineRepository.search(artist.name, AudioSource.YOUTUBE)
+                        } catch (_: Exception) {
+                            emptyList()
+                        }
+                    }
+                }
+                var albums = catalogue.albums
+                if (albums.isEmpty()) {
+                    albums = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                        try {
+                            val piped = com.aman.auramusic.online.network.piped.PipedService()
+                            piped.searchMusicCollections(artist.name, 10)
+                        } catch (_: Exception) {
+                            emptyList()
+                        }
+                    }
+                }
+                artistDetailSongs = songs
+                artistDetailAlbums = albums
             } catch (_: Exception) {
                 artistDetailSongs = emptyList()
                 artistDetailAlbums = emptyList()
@@ -522,7 +548,7 @@ fun LibraryScreen(
                                 borderWidth = 1.dp,
                                 sheenAlpha = if (isSelected) 0.35f else 0.12f
                             )
-                            .clickable { selectedTab = tab }
+                            .clickable { onTabSelected(tab) }
                             .padding(vertical = 10.dp),
                         contentAlignment = Alignment.Center
                     ) {

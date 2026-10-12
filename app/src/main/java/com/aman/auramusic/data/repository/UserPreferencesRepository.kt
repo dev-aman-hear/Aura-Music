@@ -428,7 +428,7 @@ class UserPreferencesRepository(private val context: Context) {
 
     suspend fun saveOnlinePlaylist(playlist: OnlinePlaylist): Boolean {
         var added = false
-        val reference = playlist.copy(songs = emptyList())
+        val reference = if (playlist.songs.isNotEmpty()) playlist.copy(songs = playlist.songs.take(50)) else playlist
         dataStore.edit { prefs ->
             val list = prefs[Keys.savedOnlinePlaylists].decodeSavedOnlinePlaylists().toMutableList()
             val exists = list.any { it.id == reference.id && it.source == reference.source }
@@ -474,7 +474,7 @@ class UserPreferencesRepository(private val context: Context) {
     suspend fun saveOnlineAlbum(album: OnlinePlaylist): Boolean {
         if (album.id.isBlank() || album.title.isBlank()) return false
         var added = false
-        val reference = album.copy(songs = emptyList())
+        val reference = if (album.songs.isNotEmpty()) album.copy(songs = album.songs.take(50)) else album
         dataStore.edit { prefs ->
             val list = prefs[Keys.savedOnlineAlbums].decodeSavedOnlinePlaylists().toMutableList()
             val exists = list.any { it.id == reference.id && it.source == reference.source }

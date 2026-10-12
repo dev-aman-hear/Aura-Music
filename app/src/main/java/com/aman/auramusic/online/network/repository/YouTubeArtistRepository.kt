@@ -184,16 +184,20 @@ class YouTubeArtistRepositoryImpl @Inject constructor(
 
     override suspend fun getArtistCatalogue(artistName: String, artistId: String?): ArtistCatalogue = withContext(Dispatchers.IO) {
         val browseId = artistId?.trim().orEmpty()
-        // A real YouTube Music browse ID is required. Never substitute a broad text search:
-        // it mixes covers, fan uploads, unrelated artists, and compilations into an artist page.
-        if (browseId.isBlank() || browseId.startsWith("local_") || browseId.startsWith("yt_artist_")) {
-            return@withContext ArtistCatalogue()
+        if (browseId.isBlank() || browseId.startsWith("local_") || browseId.startsWith("yt_artist_") || browseId.startsWith("artist_")) {
+            val fallbackTracks = try {
+                onlineRepository.search(artistName, AudioSource.ALL)
+            } catch (_: Exception) { emptyList() }
+            val fallbackAlbums = try {
+                pipedService.searchMusicCollections(artistName, 10)
+            } catch (_: Exception) { emptyList() }
+            return@withContext ArtistCatalogue(songs = fallbackTracks, albums = fallbackAlbums)
         }
 
         val cacheKey = "browse:$browseId"
         artistCatalogueCache.get(cacheKey)?.let { return@withContext it }
 
-        val catalogue = try {
+        var catalogue = try {
             val payload = """
                 {
                   "context": {
@@ -230,6 +234,23 @@ class YouTubeArtistRepositoryImpl @Inject constructor(
         } catch (e: Exception) {
             if (e is CancellationException) throw e
             ArtistCatalogue()
+        }
+
+        if (catalogue.songs.isEmpty()) {
+            val fallbackTracks = try {
+                onlineRepository.search(artistName, AudioSource.ALL)
+            } catch (_: Exception) { emptyList() }
+            if (fallbackTracks.isNotEmpty()) {
+                catalogue = catalogue.copy(songs = fallbackTracks)
+            }
+        }
+        if (catalogue.albums.isEmpty()) {
+            val fallbackAlbums = try {
+                pipedService.searchMusicCollections(artistName, 10)
+            } catch (_: Exception) { emptyList() }
+            if (fallbackAlbums.isNotEmpty()) {
+                catalogue = catalogue.copy(albums = fallbackAlbums)
+            }
         }
 
         if (catalogue.songs.isNotEmpty() || catalogue.albums.isNotEmpty()) {

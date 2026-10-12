@@ -471,7 +471,10 @@ fun HomeScreen(
                     if (isAlbumSaved) {
                         onRemoveSavedOnlineAlbum?.invoke(curAlbum.id)
                     } else {
-                        onSaveOnlineAlbum?.invoke(curAlbum)
+                        val albumToSave = if (selectedOnlineAlbumSongs.isNotEmpty()) {
+                            curAlbum.copy(songs = selectedOnlineAlbumSongs)
+                        } else curAlbum
+                        onSaveOnlineAlbum?.invoke(albumToSave)
                     }
                 },
                 onBack = {
