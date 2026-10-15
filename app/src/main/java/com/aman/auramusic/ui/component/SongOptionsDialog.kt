@@ -1,7 +1,10 @@
 package com.aman.auramusic.ui.component
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
@@ -20,7 +23,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import com.aman.auramusic.data.model.Song
 import com.aman.auramusic.ui.theme.LocalIsDark
-import com.aman.auramusic.ui.theme.frostedGlass
 
 @Composable
 fun SongOptionsDialog(
@@ -35,15 +37,12 @@ fun SongOptionsDialog(
     val isDark = LocalIsDark.current
 
     Dialog(onDismissRequest = onDismiss) {
+        val dialogShape = RoundedCornerShape(24.dp)
         Box(
             modifier = Modifier
-                .frostedGlass(
-                    shape = RoundedCornerShape(24.dp),
-                    isDark = isDark,
-                    elevation = 16.dp,
-                    borderWidth = 1.2.dp,
-                    sheenAlpha = if (isDark) 0.22f else 0.40f
-                )
+                .clip(dialogShape)
+                .background(MaterialTheme.colorScheme.surface, dialogShape)
+                .border(androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline), dialogShape)
         ) {
             Column(
                 modifier = Modifier
@@ -97,7 +96,7 @@ fun SongOptionsDialog(
                         Icon(
                             imageVector = if (isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
                             contentDescription = null,
-                            tint = if (isFavorite) Color(0xFFFA2D48) else MaterialTheme.colorScheme.onSurface,
+                            tint = if (isFavorite) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
                             modifier = Modifier.size(20.dp)
                         )
                         Spacer(modifier = Modifier.width(8.dp))

@@ -2,7 +2,9 @@ package com.aman.auramusic.ui.component
 
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -48,7 +50,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.aman.auramusic.data.model.Song
 import com.aman.auramusic.online.model.OnlineSong
-import com.aman.auramusic.ui.theme.frostedGlass
 import com.aman.auramusic.online.model.toSong
 import com.aman.auramusic.ui.theme.LocalIsDark
 import com.aman.auramusic.util.formatDuration
@@ -79,26 +80,20 @@ fun SongRow(
     val titleColor by animateColorAsState(
         targetValue = when {
             isActive -> activeColor
-            isDark -> Color.White
             else -> MaterialTheme.colorScheme.onSurface
         },
         label = "titleColor"
     )
-    val subtitleColor = if (isDark) Color.White.copy(alpha = 0.58f) else Color.Black.copy(alpha = 0.55f)
+    val subtitleColor = MaterialTheme.colorScheme.onSurfaceVariant
 
     val rowShape = RoundedCornerShape(14.dp)
     val rowModifier = if (isActive) {
         modifier
             .fillMaxWidth()
             .padding(horizontal = 12.dp, vertical = 2.dp)
-            .frostedGlass(
-                shape = rowShape,
-                isDark = isDark,
-                tint = activeColor,
-                elevation = 4.dp,
-                borderWidth = 1.dp,
-                sheenAlpha = if (isDark) 0.16f else 0.30f
-            )
+            .clip(rowShape)
+            .background(MaterialTheme.colorScheme.surfaceVariant, rowShape)
+            .border(androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline), rowShape)
             .combinedClickable(
                 onClick = onClick,
                 onLongClick = onLongClick
@@ -205,7 +200,7 @@ fun SongRow(
                     Icon(
                         imageVector = Icons.Default.MoreHoriz,
                         contentDescription = "Options",
-                        tint = if (isDark) Color.White.copy(alpha = 0.7f) else Color.Black.copy(alpha = 0.6f),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.size(18.dp)
                     )
                 }
@@ -293,12 +288,12 @@ fun SongRow(
 
                     if (onRemove != null) {
                         DropdownMenuItem(
-                            text = { Text("Remove", color = Color(0xFFFF5252), fontWeight = FontWeight.SemiBold) },
+                            text = { Text("Remove", color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.SemiBold) },
                             leadingIcon = {
                                 Icon(
                                     imageVector = Icons.Default.Delete,
                                     contentDescription = null,
-                                    tint = Color(0xFFFF5252),
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                     modifier = Modifier.size(20.dp)
                                 )
                             },

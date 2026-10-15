@@ -1,5 +1,6 @@
 package com.aman.auramusic.ui.component
 
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Arrangement
@@ -16,10 +17,12 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.background
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.SkipNext
+import androidx.compose.material.icons.filled.SkipPrevious
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -40,15 +43,12 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.aman.auramusic.data.model.Song
-import com.aman.auramusic.ui.theme.GlassLevel
 import com.aman.auramusic.ui.theme.LocalIsDark
-import com.aman.auramusic.ui.theme.liquidGlass
 
 /**
- * Floating Liquid Glass Mini Player inspired by iOS & Apple Music.
- * Features a floating glass capsule with specular border highlight,
- * artwork thumbnail, crisp typography, responsive playback controls,
- * and edge-to-edge content transmittance behind it.
+ * Floating Minimalist Mini Player inspired by Apple Music.
+ * Features a floating capsule with subtle border,
+ * artwork thumbnail, crisp typography, and responsive playback controls.
  */
 @Composable
 fun MiniPlayer(
@@ -56,7 +56,6 @@ fun MiniPlayer(
     isPlaying: Boolean,
     position: Long,
     duration: Long,
-    dominantColor: Color = MaterialTheme.colorScheme.surfaceVariant,
     onOpen: () -> Unit,
     onPlayPause: () -> Unit,
     onNext: () -> Unit,
@@ -67,9 +66,9 @@ fun MiniPlayer(
     var dragY by remember { mutableFloatStateOf(0f) }
     val isDark = LocalIsDark.current
 
-    val titleColor = if (isDark) Color.White else Color(0xFF111111)
-    val subtitleColor = if (isDark) Color.White.copy(alpha = 0.60f) else Color(0xFF8E8E93)
-    val iconTint = if (isDark) Color.White else Color(0xFF111111)
+    val titleColor = MaterialTheme.colorScheme.onSurface
+    val subtitleColor = MaterialTheme.colorScheme.onSurfaceVariant
+    val iconTint = MaterialTheme.colorScheme.onSurface
     val pillShape = RoundedCornerShape(32.dp)
 
     Box(
@@ -97,15 +96,9 @@ fun MiniPlayer(
                     dragY += dragAmount.y
                 }
             }
-            .liquidGlass(
-                shape = pillShape,
-                level = GlassLevel.UltraThin,
-                isDark = isDark,
-                tint = dominantColor,
-                elevation = if (isDark) 16.dp else 10.dp,
-                borderWidth = 1.2.dp,
-                sheenAlpha = if (isDark) 0.24f else 0.44f
-            )
+            .clip(pillShape)
+            .background(MaterialTheme.colorScheme.surface, pillShape)
+            .border(androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline), pillShape)
             .clickable(onClick = onOpen)
     ) {
         // Main content row
@@ -115,7 +108,7 @@ fun MiniPlayer(
                 .padding(horizontal = 10.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Album Artwork thumbnail with subtle glass border
+            // Album Artwork thumbnail
             Box(
                 modifier = Modifier
                     .size(48.dp)
@@ -156,15 +149,28 @@ fun MiniPlayer(
                 )
             }
 
-            // Controls
+            // Controls: Previous (Back), Play/Pause, Next
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                horizontalArrangement = Arrangement.spacedBy(2.dp)
             ) {
+                // Previous Track (Back) Button
+                IconButton(
+                    onClick = onPrevious,
+                    modifier = Modifier.size(36.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.SkipPrevious,
+                        contentDescription = "Previous Track",
+                        tint = iconTint,
+                        modifier = Modifier.size(22.dp)
+                    )
+                }
+
                 // Play / Pause Button
                 IconButton(
                     onClick = onPlayPause,
-                    modifier = Modifier.size(42.dp)
+                    modifier = Modifier.size(40.dp)
                 ) {
                     Icon(
                         imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
@@ -177,13 +183,13 @@ fun MiniPlayer(
                 // Next Track Button (Apple Music style double arrow SkipNext)
                 IconButton(
                     onClick = onNext,
-                    modifier = Modifier.size(42.dp)
+                    modifier = Modifier.size(36.dp)
                 ) {
                     Icon(
                         imageVector = Icons.Default.SkipNext,
                         contentDescription = "Next Track",
                         tint = iconTint,
-                        modifier = Modifier.size(26.dp)
+                        modifier = Modifier.size(22.dp)
                     )
                 }
             }
@@ -200,35 +206,9 @@ fun MiniPlayer(
             LinearProgressIndicator(
                 progress = { progress.coerceIn(0f, 1f) },
                 modifier = Modifier.fillMaxSize(),
-                color = com.aman.auramusic.ui.theme.AppleMusicAccent,
-                trackColor = Color.Transparent
+                color = MaterialTheme.colorScheme.primary,
+                trackColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.4f)
             )
         }
     }
 }
-
-/**
- * Reusable Liquid Glass Mini Player component.
- */
-@Composable
-fun LiquidGlassMiniPlayer(
-    song: Song,
-    isPlaying: Boolean,
-    position: Long,
-    duration: Long,
-    dominantColor: Color = MaterialTheme.colorScheme.surfaceVariant,
-    onOpen: () -> Unit,
-    onPlayPause: () -> Unit,
-    onNext: () -> Unit,
-    onPrevious: () -> Unit = {}
-) = MiniPlayer(
-    song = song,
-    isPlaying = isPlaying,
-    position = position,
-    duration = duration,
-    dominantColor = dominantColor,
-    onOpen = onOpen,
-    onPlayPause = onPlayPause,
-    onNext = onNext,
-    onPrevious = onPrevious
-)

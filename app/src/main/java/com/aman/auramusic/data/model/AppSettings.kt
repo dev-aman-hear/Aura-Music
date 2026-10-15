@@ -1,9 +1,6 @@
 package com.aman.auramusic.data.model
 
 data class AppSettings(
-    val dynamicColors: Boolean = true,
-    val amoledMode: Boolean = true,
-    val blurIntensity: Int = 42,
     val karaokeMode: Boolean = true,
     val lyricFontScale: Float = 1.0f,
     val crossfadeEnabled: Boolean = false,
@@ -12,6 +9,6 @@ data class AppSettings(
     val smartAudioFocus: Boolean = true,
     val keepPlayingOnClose: Boolean = true,
     val playlistGridColumns: Int = 2,
-    val themeMode: ThemeMode = ThemeMode.SYSTEM,
-    val liquidGlass: LiquidGlassConfig = LiquidGlassConfig()
+    val themeMode: ThemeMode = ThemeMode.SYSTEM
 )
+
