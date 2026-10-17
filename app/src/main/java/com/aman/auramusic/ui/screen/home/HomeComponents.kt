@@ -1,7 +1,11 @@
 package com.aman.auramusic.ui.screen.home
 
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -10,6 +14,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
+
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
@@ -19,37 +25,30 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.BookmarkAdd
 import androidx.compose.material.icons.filled.BookmarkAdded
-import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Equalizer
-import androidx.compose.material.icons.filled.MoreHoriz
-import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Sensors
 import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material.icons.filled.WifiOff
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import com.aman.auramusic.online.network.repository.ArtistBioData
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import com.aman.auramusic.ui.theme.AuraActionButtons
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Dialog
 import coil.compose.AsyncImage
 import com.aman.auramusic.data.model.Song
 import com.aman.auramusic.online.model.OnlinePlaylist
@@ -57,7 +56,6 @@ import com.aman.auramusic.online.model.OnlineSong
 import com.aman.auramusic.ui.component.AuraArtwork
 import com.aman.auramusic.ui.component.SongArtwork
 import com.aman.auramusic.ui.theme.LocalIsDark
-import com.aman.auramusic.util.formatDuration
 
 /**
  * Editorial top bar for the Apple Music monochrome Home experience.
@@ -170,11 +168,12 @@ fun HomeHeader(
 @Composable
 fun AuraAvatarBadge(
     initial: String,
-    onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    onClick: (() -> Unit)? = null,
     size: Dp = 42.dp
 ) {
     val displayInitial = initial.ifBlank { "A" }
+    val clickModifier = if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier
 
     Box(
         modifier = modifier
@@ -186,7 +185,7 @@ fun AuraAvatarBadge(
                 color = MaterialTheme.colorScheme.outline,
                 shape = CircleShape
             )
-            .clickable(onClick = onClick),
+            .then(clickModifier),
         contentAlignment = Alignment.Center
     ) {
         Text(
@@ -680,6 +679,7 @@ fun ArtistDetailSheet(
     localSongs: List<Song>,
     onlineAlbums: List<OnlinePlaylist> = emptyList(),
     isLoading: Boolean,
+    errorMessage: String? = null,
     onDismiss: () -> Unit,
     onPlaySong: (Song, List<Song>) -> Unit,
     onPlayOnlineSong: (OnlineSong, List<OnlineSong>) -> Unit,
@@ -688,7 +688,10 @@ fun ArtistDetailSheet(
     onPlayAll: () -> Unit = onShuffleAll,
     isSavedInLibrary: Boolean = false,
     onToggleSaveToLibrary: (() -> Unit)? = null,
-    audienceText: String? = null
+    audienceText: String? = null,
+    similarArtists: List<ArtistItem> = emptyList(),
+    bioData: ArtistBioData? = null,
+    onSelectSimilarArtist: ((ArtistItem) -> Unit)? = null
 ) {
     val pageBackground = MaterialTheme.colorScheme.background
     val titleColor = MaterialTheme.colorScheme.onBackground
@@ -699,7 +702,7 @@ fun ArtistDetailSheet(
             .entries
             .sortedByDescending { it.value.size }
     }
-    var showArtistMenu by remember(artist.artistId, artist.name) { mutableStateOf(false) }
+    val listState = rememberLazyListState()
 
     androidx.activity.compose.BackHandler(onBack = onDismiss)
 
@@ -707,138 +710,62 @@ fun ArtistDetailSheet(
         modifier = Modifier.fillMaxSize(),
         color = pageBackground
     ) {
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .navigationBarsPadding(),
-            contentPadding = PaddingValues(bottom = 176.dp)
-        ) {
-            item(key = "artist_hero") {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(340.dp)
-                ) {
-                    val initial = artist.name.trim().firstOrNull()?.uppercaseChar()?.toString().orEmpty()
+        Box(modifier = Modifier.fillMaxSize()) {
+            LazyColumn(
+                state = listState,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .navigationBarsPadding(),
+                contentPadding = PaddingValues(bottom = 176.dp)
+            ) {
+                item(key = "artist_hero") {
                     Box(
                         modifier = Modifier
-                            .fillMaxSize()
-                            .background(MaterialTheme.colorScheme.surfaceVariant),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        if (initial.isNotBlank()) {
-                            Text(
-                                text = initial,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                fontSize = 76.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                    }
-
-                    if (artist.artworkModel != null) {
-                        AsyncImage(
-                            model = artist.artworkModel,
-                            contentDescription = "${artist.name} artist artwork",
-                            modifier = Modifier.fillMaxSize(),
-                            contentScale = ContentScale.Crop
-                        )
-                    }
-
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .background(
-                                Brush.verticalGradient(
-                                    0f to Color.Transparent,
-                                    0.50f to Color.Transparent,
-                                    0.78f to pageBackground.copy(alpha = 0.70f),
-                                    1f to pageBackground
-                                )
-                            )
-                    )
-
-                    Row(
-                        modifier = Modifier
-                            .align(Alignment.TopCenter)
                             .fillMaxWidth()
-                            .statusBarsPadding()
-                            .padding(horizontal = 16.dp, vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
+                            .height(340.dp)
                     ) {
+                        val initial = artist.name.trim().firstOrNull()?.uppercaseChar()?.toString().orEmpty()
                         Box(
                             modifier = Modifier
-                                .size(44.dp)
-                                .clip(CircleShape)
-                                .background(MaterialTheme.colorScheme.surfaceVariant, CircleShape)
-                                .border(
-                                    width = 1.dp,
-                                    color = MaterialTheme.colorScheme.outline,
-                                    shape = CircleShape
-                                ),
+                                .fillMaxSize()
+                                .background(MaterialTheme.colorScheme.surfaceVariant),
                             contentAlignment = Alignment.Center
                         ) {
-                            IconButton(onClick = onDismiss) {
-                                Icon(
-                                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                                    contentDescription = "Back",
-                                    tint = MaterialTheme.colorScheme.onSurface,
-                                    modifier = Modifier.size(23.dp)
+                            if (initial.isNotBlank()) {
+                                Text(
+                                    text = initial,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    fontSize = 76.sp,
+                                    fontWeight = FontWeight.Bold
                                 )
                             }
                         }
 
-                        Box {
-                            Box(
-                                modifier = Modifier
-                                .size(44.dp)
-                                .clip(CircleShape)
-                                .background(MaterialTheme.colorScheme.surfaceVariant, CircleShape)
-                                .border(
-                                    width = 1.dp,
-                                    color = MaterialTheme.colorScheme.outline,
-                                    shape = CircleShape
-                                ),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                IconButton(onClick = { showArtistMenu = true }) {
-                                    Icon(
-                                        imageVector = Icons.Default.MoreHoriz,
-                                        contentDescription = "Artist options",
-                                        tint = MaterialTheme.colorScheme.onSurface,
-                                        modifier = Modifier.size(24.dp)
-                                    )
-                                }
-                            }
-                            DropdownMenu(
-                                expanded = showArtistMenu,
-                                onDismissRequest = { showArtistMenu = false }
-                            ) {
-                                if (onToggleSaveToLibrary != null) {
-                                    DropdownMenuItem(
-                                        text = {
-                                            Text(if (isSavedInLibrary) "Remove from Artist" else "Save to Artist")
-                                        },
-                                        leadingIcon = {
-                                            Icon(
-                                                imageVector = if (isSavedInLibrary) Icons.Default.BookmarkAdded else Icons.Default.BookmarkAdd,
-                                                contentDescription = null
-                                            )
-                                        },
-                                        onClick = {
-                                            showArtistMenu = false
-                                            onToggleSaveToLibrary()
-                                        }
-                                    )
-                                }
-                            }
+                        if (artist.artworkModel != null) {
+                            AsyncImage(
+                                model = artist.artworkModel,
+                                contentDescription = "${artist.name} artist artwork",
+                                modifier = Modifier.fillMaxSize(),
+                                contentScale = ContentScale.Crop
+                            )
                         }
-                    }
 
-                    Row(
-                        modifier = Modifier
-                            .align(Alignment.BottomCenter)
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(
+                                    Brush.verticalGradient(
+                                        0f to Color.Transparent,
+                                        0.50f to Color.Transparent,
+                                        0.78f to pageBackground.copy(alpha = 0.70f),
+                                        1f to pageBackground
+                                    )
+                                )
+                        )
+
+                        Row(
+                            modifier = Modifier
+                                .align(Alignment.BottomCenter)
                             .fillMaxWidth()
                             .padding(start = 22.dp, end = 22.dp, bottom = 22.dp),
                         verticalAlignment = Alignment.Bottom
@@ -897,13 +824,24 @@ fun ArtistDetailSheet(
             } else if (onlineSongs.isEmpty() && localSongs.isEmpty()) {
                 item(key = "artist_empty") {
                     Text(
-                        text = "No tracks are available for this artist yet.",
+                        text = errorMessage?.takeIf { it.isNotBlank() }
+                            ?: "No tracks are available for this artist yet.",
                         color = secondaryColor,
                         fontSize = 14.sp,
                         modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 26.dp)
                     )
                 }
             } else {
+                if (!errorMessage.isNullOrBlank()) {
+                    item(key = "artist_catalogue_warning") {
+                        Text(
+                            text = errorMessage,
+                            color = secondaryColor,
+                            fontSize = 13.sp,
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 12.dp)
+                        )
+                    }
+                }
                 if (onlineSongs.isNotEmpty()) {
                     item(key = "artist_top_songs_heading") {
                         Text(
@@ -1077,6 +1015,264 @@ fun ArtistDetailSheet(
                                     Text("${entry.value.size} songs · Local library", color = secondaryColor, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                 }
                             }
+                        }
+                    }
+                }
+
+                if (bioData != null && (!bioData.description.isNullOrBlank() || !bioData.origin.isNullOrBlank() || !bioData.born.isNullOrBlank() || !bioData.genre.isNullOrBlank())) {
+                    item(key = "artist_about_section") {
+                        var isBioExpanded by remember { mutableStateOf(false) }
+
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 20.dp, vertical = 24.dp)
+                        ) {
+                            Text(
+                                text = "About ${artist.name}",
+                                color = titleColor,
+                                fontSize = 22.sp,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(bottom = 12.dp)
+                            )
+
+                            if (!bioData.description.isNullOrBlank()) {
+                                val fullBio = bioData.description
+                                Column {
+                                    Text(
+                                        text = fullBio,
+                                        color = titleColor.copy(alpha = 0.88f),
+                                        fontSize = 15.sp,
+                                        lineHeight = 22.sp,
+                                        maxLines = if (isBioExpanded) Int.MAX_VALUE else 3,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                    if (fullBio.length > 120) {
+                                        Text(
+                                            text = if (isBioExpanded) "LESS" else "MORE",
+                                            color = titleColor,
+                                            fontSize = 13.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            modifier = Modifier
+                                                .padding(top = 4.dp)
+                                                .clickable { isBioExpanded = !isBioExpanded }
+                                        )
+                                    }
+                                }
+                                Spacer(modifier = Modifier.height(20.dp))
+                            }
+
+                            if (!bioData.origin.isNullOrBlank()) {
+                                Text(
+                                    text = "From",
+                                    color = secondaryColor,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Normal
+                                )
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Text(
+                                    text = bioData.origin,
+                                    color = titleColor,
+                                    fontSize = 16.sp,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                                Spacer(modifier = Modifier.height(14.dp))
+                            }
+
+                            if (!bioData.born.isNullOrBlank()) {
+                                Text(
+                                    text = "Born",
+                                    color = secondaryColor,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Normal
+                                )
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Text(
+                                    text = bioData.born,
+                                    color = titleColor,
+                                    fontSize = 16.sp,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                                Spacer(modifier = Modifier.height(14.dp))
+                            }
+
+                            if (!bioData.genre.isNullOrBlank()) {
+                                Text(
+                                    text = "Genre",
+                                    color = secondaryColor,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Normal
+                                )
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Text(
+                                    text = bioData.genre,
+                                    color = titleColor,
+                                    fontSize = 16.sp,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            }
+                        }
+                    }
+                }
+
+                if (similarArtists.isNotEmpty()) {
+                    item(key = "artist_similar_artists_heading") {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 14.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "Similar Artists",
+                                color = titleColor,
+                                fontSize = 22.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Icon(
+                                imageVector = Icons.Default.ChevronRight,
+                                contentDescription = null,
+                                tint = secondaryColor,
+                                modifier = Modifier.size(22.dp)
+                            )
+                        }
+                    }
+                    item(key = "artist_similar_artists_rail") {
+                        LazyRow(
+                            contentPadding = PaddingValues(horizontal = 20.dp),
+                            horizontalArrangement = Arrangement.spacedBy(16.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            items(similarArtists, key = { "similar_${it.artistId.ifBlank { it.name }}" }) { simArtist ->
+                                Column(
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    modifier = Modifier
+                                        .width(100.dp)
+                                        .clickable { onSelectSimilarArtist?.invoke(simArtist) }
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(100.dp)
+                                            .clip(CircleShape)
+                                            .background(MaterialTheme.colorScheme.surfaceVariant, CircleShape),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        val init = simArtist.name.trim().firstOrNull()?.uppercaseChar()?.toString().orEmpty()
+                                        if (init.isNotBlank()) {
+                                            Text(
+                                                text = init,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                fontSize = 32.sp,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                        }
+                                        if (simArtist.artworkModel != null) {
+                                            AsyncImage(
+                                                model = simArtist.artworkModel,
+                                                contentDescription = "${simArtist.name} profile",
+                                                modifier = Modifier
+                                                    .fillMaxSize()
+                                                    .clip(CircleShape),
+                                                contentScale = ContentScale.Crop
+                                            )
+                                        }
+                                    }
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Text(
+                                        text = simArtist.name,
+                                        color = titleColor,
+                                        fontSize = 14.sp,
+                                        fontWeight = FontWeight.Medium,
+                                        textAlign = TextAlign.Center,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                        modifier = Modifier.fillMaxWidth()
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+            Row(
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .fillMaxWidth()
+                    .statusBarsPadding()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(44.dp)
+                        .clip(CircleShape)
+                        .background(
+                            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = AuraActionButtons.BackgroundAlpha),
+                            CircleShape
+                        )
+                        .border(
+                            width = 1.dp,
+                            color = MaterialTheme.colorScheme.outline.copy(alpha = AuraActionButtons.BorderAlpha),
+                            shape = CircleShape
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    IconButton(onClick = onDismiss) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Back",
+                            tint = MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier.size(23.dp)
+                        )
+                    }
+                }
+
+                Box(
+                    modifier = Modifier
+                        .size(44.dp)
+                        .clip(CircleShape)
+                        .background(
+                            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = AuraActionButtons.BackgroundAlpha),
+                            CircleShape
+                        )
+                        .border(
+                            width = 1.dp,
+                            color = MaterialTheme.colorScheme.outline.copy(alpha = AuraActionButtons.BorderAlpha),
+                            shape = CircleShape
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    var isActionPending by remember(artist.artistId, artist.name) { mutableStateOf(false) }
+                    LaunchedEffect(isSavedInLibrary) {
+                        isActionPending = false
+                    }
+
+                    IconButton(
+                        onClick = {
+                            if (!isActionPending && onToggleSaveToLibrary != null) {
+                                isActionPending = true
+                                onToggleSaveToLibrary()
+                            }
+                        }
+                    ) {
+                        AnimatedContent(
+                            targetState = isSavedInLibrary,
+                            transitionSpec = {
+                                fadeIn(animationSpec = tween(200)) togetherWith
+                                        fadeOut(animationSpec = tween(150))
+                            },
+                            label = "ArtistDetailSaveAnim"
+                        ) { saved ->
+                            Icon(
+                                imageVector = if (saved) Icons.Default.BookmarkAdded else Icons.Default.BookmarkAdd,
+                                contentDescription = if (saved) "Remove saved artist" else "Save artist",
+                                tint = if (saved) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                                modifier = Modifier.size(24.dp)
+                            )
                         }
                     }
                 }
@@ -1269,7 +1465,7 @@ fun DiscoverCategorySection(
 ) {
     if (categories.isEmpty()) return
 
-    Column(modifier = modifier.padding(top = 26.dp, bottom = 18.dp)) {
+    Column(modifier = modifier.padding(top = 20.dp, bottom = 4.dp)) {
         HomeSectionHeader(
             title = "Discover by Category",
             actionText = "See All",

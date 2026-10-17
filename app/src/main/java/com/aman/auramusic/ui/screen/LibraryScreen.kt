@@ -48,6 +48,7 @@ import com.aman.auramusic.online.model.OnlineSong
 import com.aman.auramusic.online.model.SavedOnlineArtist
 import com.aman.auramusic.online.filter.ExplicitTitleFilter
 import com.aman.auramusic.online.network.repository.OnlineMusicRepository
+import com.aman.auramusic.online.network.repository.ArtistBioData
 import com.aman.auramusic.online.network.repository.YouTubeArtistRepositoryImpl
 import com.aman.auramusic.online.player.OnlinePlaybackManager
 import com.aman.auramusic.ui.component.*
@@ -146,6 +147,9 @@ fun LibraryScreen(
     var onlineArtistPortraits by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
     var artistDetailSongs by remember { mutableStateOf<List<OnlineSong>>(emptyList()) }
     var artistDetailAlbums by remember { mutableStateOf<List<OnlinePlaylist>>(emptyList()) }
+    var artistDetailSimilarArtists by remember { mutableStateOf<List<ArtistItem>>(emptyList()) }
+    var artistDetailBioData by remember { mutableStateOf<ArtistBioData?>(null) }
+    var artistDetailErrorMessage by remember { mutableStateOf<String?>(null) }
     var isArtistDetailLoading by remember { mutableStateOf(false) }
 
     LaunchedEffect(selectedOnlinePlaylist) {
@@ -176,6 +180,7 @@ fun LibraryScreen(
         val artist = selectedArtist
         if (artist != null) {
             isArtistDetailLoading = true
+            artistDetailErrorMessage = null
             try {
                 var browseId = artist.artistId
                 if (browseId.isBlank() || browseId.startsWith("local_") || browseId.startsWith("artist_")) {
@@ -186,11 +191,10 @@ fun LibraryScreen(
                             emptyList()
                         }
                     }
-                    val found = searchResults.firstOrNull { 
-                        it.name.equals(artist.name, ignoreCase = true) ||
-                        it.name.contains(artist.name, ignoreCase = true) ||
-                        artist.name.contains(it.name, ignoreCase = true)
-                    } ?: searchResults.firstOrNull()
+                    val targetArtistKey = artist.name.lowercase(java.util.Locale.ROOT).filter { it.isLetterOrDigit() }
+                    val found = searchResults.firstOrNull {
+                        it.name.lowercase(java.util.Locale.ROOT).filter { ch -> ch.isLetterOrDigit() } == targetArtistKey
+                    }
                     if (found != null && found.id.isNotBlank() && !found.id.startsWith("local_")) {
                         browseId = found.id
                         if (!found.subscriberCountText.isNullOrBlank()) {
@@ -201,43 +205,43 @@ fun LibraryScreen(
                         }
                     }
                 }
-                val catalogue = if (browseId.isNotBlank() && !browseId.startsWith("local_") && !browseId.startsWith("artist_")) {
-                    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-                        try {
-                            youtubeArtistRepository.getArtistCatalogue(artist.name, browseId)
-                        } catch (_: Exception) {
-                            com.aman.auramusic.online.network.repository.ArtistCatalogue()
-                        }
-                    }
-                } else com.aman.auramusic.online.network.repository.ArtistCatalogue()
-                
-                var songs = catalogue.songs
-                if (songs.isEmpty()) {
-                    songs = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-                        try {
-                            val directOnline = onlineRepository.search(artist.name, AudioSource.ALL)
-                            if (directOnline.isNotEmpty()) directOnline else onlineRepository.search(artist.name, AudioSource.YOUTUBE)
-                        } catch (_: Exception) {
-                            emptyList()
-                        }
+                val catalogue = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                    try {
+                        val idToUse = if (browseId.isNotBlank() && !browseId.startsWith("local_") && !browseId.startsWith("artist_")) browseId else ""
+                        youtubeArtistRepository.getArtistCatalogue(artist.name, idToUse)
+                    } catch (_: Exception) {
+                        com.aman.auramusic.online.network.repository.ArtistCatalogue(
+                            loadErrorMessage = "Unable to load this artist's catalogue. Check your connection and try again."
+                        )
                     }
                 }
-                var albums = catalogue.albums
-                if (albums.isEmpty()) {
-                    albums = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-                        try {
-                            val piped = com.aman.auramusic.online.network.piped.PipedService()
-                            piped.searchMusicCollections(artist.name, 10)
-                        } catch (_: Exception) {
-                            emptyList()
-                        }
-                    }
+                
+                val songs = catalogue.songs
+                val albums = catalogue.albums
+                artistDetailErrorMessage = catalogue.loadErrorMessage
+                val similarItems = catalogue.similarArtists.map {
+                    ArtistItem(
+                        name = it.name,
+                        songCountText = it.subscriberCountText.orEmpty(),
+                        artworkModel = it.profileImageUrl,
+                        isOnline = true,
+                        artistId = it.id
+                    )
                 }
                 artistDetailSongs = songs
                 artistDetailAlbums = albums
-            } catch (_: Exception) {
+                artistDetailSimilarArtists = similarItems
+                artistDetailBioData = catalogue.bio
+                if (!catalogue.subscriberCountText.isNullOrBlank()) {
+                    onlineArtistAudiences = onlineArtistAudiences + (artist.name to catalogue.subscriberCountText)
+                }
+            } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
                 artistDetailSongs = emptyList()
                 artistDetailAlbums = emptyList()
+                artistDetailSimilarArtists = emptyList()
+                artistDetailBioData = null
+                artistDetailErrorMessage = "Unable to load this artist's catalogue. Check your connection and try again."
             } finally {
                 isArtistDetailLoading = false
             }
@@ -261,7 +265,6 @@ fun LibraryScreen(
             onSongSelected = { onSongSelected(it, albumSongs) },
             onToggleFavorite = onFavoriteToggle,
             onAddToPlaylist = onAddToPlaylist,
-            showShareButton = false,
             showAddButton = false
         )
         return
@@ -343,7 +346,10 @@ fun LibraryScreen(
             onlineSongs = artistDetailSongs,
             localSongs = localMatchingSongs,
             onlineAlbums = artistDetailAlbums,
+            similarArtists = artistDetailSimilarArtists,
+            bioData = artistDetailBioData,
             isLoading = isArtistDetailLoading,
+            errorMessage = artistDetailErrorMessage,
             isSavedInLibrary = isSaved,
             onToggleSaveToLibrary = {
                 if (isSaved) {
@@ -363,6 +369,9 @@ fun LibraryScreen(
                 selectedArtist = null
                 artistDetailSongs = emptyList()
                 artistDetailAlbums = emptyList()
+                artistDetailSimilarArtists = emptyList()
+                artistDetailBioData = null
+                artistDetailErrorMessage = null
             },
             onPlaySong = onSongSelected,
             onPlayOnlineSong = onOnlineSongSelected,
@@ -386,6 +395,13 @@ fun LibraryScreen(
             },
             onOpenOnlineAlbum = { album ->
                 selectedOnlinePlaylist = album
+            },
+            onSelectSimilarArtist = { simArtist ->
+                selectedArtist = simArtist
+                artistDetailSongs = emptyList()
+                artistDetailAlbums = emptyList()
+                artistDetailSimilarArtists = emptyList()
+                artistDetailBioData = null
             },
             audienceText = audience
         )

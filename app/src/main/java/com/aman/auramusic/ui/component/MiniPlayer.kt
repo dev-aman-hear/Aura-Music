@@ -1,5 +1,8 @@
 package com.aman.auramusic.ui.component
 
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
@@ -8,16 +11,13 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.background
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
@@ -36,20 +36,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.aman.auramusic.data.model.Song
-import com.aman.auramusic.ui.theme.LocalIsDark
 
-/**
- * Floating Minimalist Mini Player inspired by Apple Music.
- * Features a floating capsule with subtle border,
- * artwork thumbnail, crisp typography, and responsive playback controls.
- */
 @Composable
 fun MiniPlayer(
     song: Song,
@@ -60,27 +53,30 @@ fun MiniPlayer(
     onPlayPause: () -> Unit,
     onNext: () -> Unit,
     onPrevious: () -> Unit = {},
+    compact: Boolean = false,
 ) {
     val progress = if (duration > 0) position.toFloat() / duration.toFloat() else 0f
     var dragX by remember { mutableFloatStateOf(0f) }
     var dragY by remember { mutableFloatStateOf(0f) }
-    val isDark = LocalIsDark.current
-
+    val pillShape = RoundedCornerShape(27.dp)
     val titleColor = MaterialTheme.colorScheme.onSurface
     val subtitleColor = MaterialTheme.colorScheme.onSurfaceVariant
     val iconTint = MaterialTheme.colorScheme.onSurface
-    val pillShape = RoundedCornerShape(32.dp)
 
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 4.dp)
-            .height(64.dp)
+            .padding(
+                horizontal = if (compact) 0.dp else 14.dp,
+                vertical = if (compact) 0.dp else 3.dp
+            )
+            .height(54.dp)
+            .animateContentSize(animationSpec = tween(220))
             .pointerInput(Unit) {
                 detectDragGestures(
                     onDragEnd = {
                         when {
-                            (dragY < -50f) && (kotlin.math.abs(dragY) > kotlin.math.abs(dragX)) -> onOpen()
+                            dragY < -50f && kotlin.math.abs(dragY) > kotlin.math.abs(dragX) -> onOpen()
                             dragX > 50f -> onNext()
                             dragX < -50f -> onPrevious()
                         }
@@ -101,106 +97,90 @@ fun MiniPlayer(
             .border(androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline), pillShape)
             .clickable(onClick = onOpen)
     ) {
-        // Main content row
         Row(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 10.dp, vertical = 8.dp),
+                .padding(horizontal = if (compact) 8.dp else 9.dp, vertical = 5.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Album Artwork thumbnail
-            Box(
-                modifier = Modifier
-                    .size(48.dp)
-                    .clip(RoundedCornerShape(12.dp))
-            ) {
-                SongArtwork(
-                    song = song,
-                    size = 48,
-                    shape = RoundedCornerShape(12.dp),
-                    elevation = 2.dp
-                )
-            }
+            SongArtwork(
+                song = song,
+                size = if (compact) 38 else 40,
+                shape = RoundedCornerShape(10.dp),
+                elevation = 0.dp
+            )
 
-            Spacer(modifier = Modifier.width(12.dp))
+            Spacer(modifier = Modifier.width(if (compact) 8.dp else 10.dp))
 
-            // Track metadata
             Column(
                 modifier = Modifier.weight(1f),
                 verticalArrangement = Arrangement.Center
             ) {
                 Text(
                     text = song.title,
-                    fontSize = 14.5.sp,
-                    fontWeight = FontWeight.Bold,
+                    fontSize = if (compact) 13.sp else 13.5.sp,
+                    fontWeight = FontWeight.SemiBold,
                     color = titleColor,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     letterSpacing = (-0.1).sp
                 )
-                Spacer(modifier = Modifier.height(2.dp))
-                Text(
-                    text = song.artist,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = subtitleColor,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
-
-            // Controls: Previous (Back), Play/Pause, Next
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(2.dp)
-            ) {
-                // Previous Track (Back) Button
-                IconButton(
-                    onClick = onPrevious,
-                    modifier = Modifier.size(36.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.SkipPrevious,
-                        contentDescription = "Previous Track",
-                        tint = iconTint,
-                        modifier = Modifier.size(22.dp)
+                if (!compact) {
+                    Spacer(modifier = Modifier.height(1.dp))
+                    Text(
+                        text = song.artist,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = subtitleColor,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
+            }
 
-                // Play / Pause Button
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(if (compact) 0.dp else 1.dp)
+            ) {
+                if (!compact) {
+                    IconButton(onClick = onPrevious, modifier = Modifier.size(30.dp)) {
+                        Icon(
+                            imageVector = Icons.Default.SkipPrevious,
+                            contentDescription = "Previous track",
+                            tint = iconTint,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                }
                 IconButton(
                     onClick = onPlayPause,
-                    modifier = Modifier.size(40.dp)
+                    modifier = Modifier.size(if (compact) 34.dp else 36.dp)
                 ) {
                     Icon(
                         imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
-                        contentDescription = "Play/Pause",
-                        tint = iconTint,
-                        modifier = Modifier.size(26.dp)
-                    )
-                }
-
-                // Next Track Button (Apple Music style double arrow SkipNext)
-                IconButton(
-                    onClick = onNext,
-                    modifier = Modifier.size(36.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.SkipNext,
-                        contentDescription = "Next Track",
+                        contentDescription = if (isPlaying) "Pause" else "Play",
                         tint = iconTint,
                         modifier = Modifier.size(22.dp)
                     )
+                }
+                if (!compact) {
+                    IconButton(onClick = onNext, modifier = Modifier.size(30.dp)) {
+                        Icon(
+                            imageVector = Icons.Default.SkipNext,
+                            contentDescription = "Next track",
+                            tint = iconTint,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
                 }
             }
         }
 
-        // Hairline subtle progress line embedded along bottom of pill
         Box(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp)
+                .padding(horizontal = if (compact) 12.dp else 14.dp)
                 .height(2.dp)
         ) {
             LinearProgressIndicator(

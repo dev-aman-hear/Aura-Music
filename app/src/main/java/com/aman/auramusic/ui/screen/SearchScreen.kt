@@ -2,9 +2,6 @@ package com.aman.auramusic.ui.screen
 
 import android.content.Context
 import androidx.activity.compose.BackHandler
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -26,7 +23,6 @@ import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.MusicNote
-import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -35,14 +31,9 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
@@ -52,7 +43,6 @@ import androidx.compose.ui.unit.sp
 import com.aman.auramusic.data.model.Song
 import com.aman.auramusic.online.model.AudioSource
 import com.aman.auramusic.online.model.OnlineSong
-import com.aman.auramusic.online.model.toSong
 import com.aman.auramusic.online.network.repository.OnlineMusicRepository
 import com.aman.auramusic.online.player.OnlinePlaybackManager
 import com.aman.auramusic.ui.component.AuraArtwork
@@ -148,9 +138,6 @@ fun SearchScreen(
     val searchBorderColor = MaterialTheme.colorScheme.outline
     val chipBg = MaterialTheme.colorScheme.surfaceVariant
     val chipBorder = MaterialTheme.colorScheme.outline
-    val avatarBg = MaterialTheme.colorScheme.surfaceVariant
-    val avatarBorder = MaterialTheme.colorScheme.outline
-    val avatarIconTint = MaterialTheme.colorScheme.onSurfaceVariant
 
     // Active result filter state
     var internalFilter by rememberSaveable(
@@ -402,22 +389,8 @@ fun SearchScreen(
                             textAlign = TextAlign.Center
                         )
 
-                        // Top-right Profile Avatar Icon
-                        Box(
-                            modifier = Modifier
-                                .size(34.dp)
-                                .clip(CircleShape)
-                                .background(avatarBg)
-                                .border(1.dp, avatarBorder, CircleShape),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Person,
-                                contentDescription = "Profile",
-                                tint = avatarIconTint,
-                                modifier = Modifier.size(18.dp)
-                            )
-                        }
+                        // Right Spacer to balance the header and keep the Search title centered
+                        Spacer(modifier = Modifier.size(36.dp))
                     }
 
                     Spacer(modifier = Modifier.height(14.dp))

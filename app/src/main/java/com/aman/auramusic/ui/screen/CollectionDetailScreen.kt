@@ -1,6 +1,5 @@
 package com.aman.auramusic.ui.screen
 
-import android.content.Intent
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -26,7 +25,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -34,7 +32,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.aman.auramusic.data.model.Song
 import com.aman.auramusic.ui.component.SongArtwork
-import com.aman.auramusic.ui.theme.AuraPrimary
+import com.aman.auramusic.ui.theme.AuraActionButtons
 import com.aman.auramusic.ui.theme.AuraScreenBackground
 
 @Composable
@@ -55,11 +53,9 @@ fun CollectionDetailScreen(
     onAddCollectionToQueue: (() -> Unit)? = null,
     onAddCollectionToPlaylist: (() -> Unit)? = null,
     onFavoriteCollection: (() -> Unit)? = null,
-    showShareButton: Boolean = true,
     showMenuButton: Boolean = true,
-    showAddButton: Boolean = true,
+    showAddButton: Boolean = false,
 ) {
-    val context = LocalContext.current
     val isDark = LocalIsDark.current
     val dynamicPrimary = MaterialTheme.colorScheme.primary
     val onPrimary = MaterialTheme.colorScheme.onPrimary
@@ -70,127 +66,20 @@ fun CollectionDetailScreen(
     var showPlusMenu by remember { mutableStateOf(false) }
 
     AuraScreenBackground(modifier = Modifier.fillMaxSize()) {
-        LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(bottom = 140.dp)
-        ) {
-        item {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .statusBarsPadding()
-                    .padding(horizontal = 20.dp, vertical = 12.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
+        Box(modifier = Modifier.fillMaxSize()) {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(bottom = 140.dp)
             ) {
-                // Top Action Header (Back, Share, Overflow 3-dot)
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+            item {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .statusBarsPadding()
+                        .padding(horizontal = 20.dp, vertical = 12.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    IconButton(onClick = onBack, modifier = Modifier.size(36.dp)) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back",
-                            tint = MaterialTheme.colorScheme.onBackground
-                        )
-                    }
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        if (showShareButton) {
-                            IconButton(
-                                onClick = {
-                                    val sendIntent = Intent().apply {
-                                        action = Intent.ACTION_SEND
-                                        putExtra(Intent.EXTRA_TEXT, "Check out $title on AuraMusic!")
-                                        type = "text/plain"
-                                    }
-                                    context.startActivity(Intent.createChooser(sendIntent, "Share"))
-                                }
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Share,
-                                    contentDescription = "Share",
-                                    tint = MaterialTheme.colorScheme.onBackground
-                                )
-                            }
-                        }
-
-                        val hasMenuItems = onAddCollectionToQueue != null ||
-                                onAddCollectionToPlaylist != null ||
-                                onFavoriteCollection != null ||
-                                onRenamePlaylist != null ||
-                                onDeletePlaylist != null
-
-                        if (showMenuButton && hasMenuItems) {
-                            Box {
-                                IconButton(onClick = { showTopMenu = true }) {
-                                    Icon(
-                                        imageVector = Icons.Default.MoreVert,
-                                        contentDescription = "Playlist Options",
-                                        tint = MaterialTheme.colorScheme.onBackground
-                                    )
-                                }
-                                DropdownMenu(
-                                    expanded = showTopMenu,
-                                    onDismissRequest = { showTopMenu = false }
-                                ) {
-                                    if (onAddCollectionToQueue != null) {
-                                        DropdownMenuItem(
-                                            text = { Text("Add Playlist to Queue", fontWeight = FontWeight.SemiBold) },
-                                            leadingIcon = { Icon(Icons.AutoMirrored.Filled.QueueMusic, contentDescription = null) },
-                                            onClick = {
-                                                showTopMenu = false
-                                                onAddCollectionToQueue()
-                                            }
-                                        )
-                                    }
-                                    if (onAddCollectionToPlaylist != null) {
-                                        DropdownMenuItem(
-                                            text = { Text("Add Playlist to...", fontWeight = FontWeight.SemiBold) },
-                                            leadingIcon = { Icon(Icons.AutoMirrored.Filled.PlaylistAdd, contentDescription = null) },
-                                            onClick = {
-                                                showTopMenu = false
-                                                onAddCollectionToPlaylist()
-                                            }
-                                        )
-                                    }
-                                    if (onFavoriteCollection != null) {
-                                        DropdownMenuItem(
-                                            text = { Text("Add All to Favorites", fontWeight = FontWeight.SemiBold) },
-                                            leadingIcon = { Icon(Icons.Default.Favorite, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
-                                            onClick = {
-                                                showTopMenu = false
-                                                onFavoriteCollection()
-                                            }
-                                        )
-                                    }
-                                    if (onRenamePlaylist != null) {
-                                        DropdownMenuItem(
-                                            text = { Text("Rename Playlist", fontWeight = FontWeight.SemiBold) },
-                                            leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null) },
-                                            onClick = {
-                                                showTopMenu = false
-                                                onRenamePlaylist()
-                                            }
-                                        )
-                                    }
-                                    if (onDeletePlaylist != null) {
-                                        DropdownMenuItem(
-                                            text = { Text("Delete Playlist", fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.error) },
-                                            leadingIcon = { Icon(Icons.Default.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
-                                            onClick = {
-                                                showTopMenu = false
-                                                onDeletePlaylist()
-                                            }
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(44.dp))
 
                 // Centered Poster Art (Apple Music Style)
                 SongArtwork(
@@ -312,8 +201,6 @@ fun CollectionDetailScreen(
                                     tint = MaterialTheme.colorScheme.onSurface,
                                     modifier = Modifier.size(22.dp)
                                 )
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text("Play", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = onPrimary)
                             }
 
                             DropdownMenu(
@@ -494,7 +381,10 @@ fun CollectionDetailScreen(
                         IconButton(
                             onClick = { itemMenuExpanded = true },
                             modifier = Modifier
-                                .background(MaterialTheme.colorScheme.surfaceVariant, CircleShape)
+                                .background(
+                                    MaterialTheme.colorScheme.surfaceVariant.copy(alpha = AuraActionButtons.BackgroundAlpha),
+                                    CircleShape
+                                )
                                 .size(34.dp)
                         ) {
                             Icon(
@@ -582,27 +472,7 @@ fun CollectionDetailScreen(
                     fontSize = 13.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                Text(
-                    text = "℗ 2026 AuraMusic LLC Under Exclusive License",
-                    fontSize = 12.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 4.dp)
-                )
-                Spacer(modifier = Modifier.height(12.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = "RECORD LABEL AuraMusic",
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    Icon(
-                        imageVector = Icons.Default.ChevronRight,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(18.dp)
-                    )
-                }
+
             }
         }
 
@@ -665,6 +535,134 @@ fun CollectionDetailScreen(
                                     overflow = TextOverflow.Ellipsis
                                 )
                             }
+                        }
+                    }
+                }
+            }
+        }
+        }
+
+        // Floating Top Overlay Action Bar
+        val hasMenuItems = onAddCollectionToQueue != null ||
+                onAddCollectionToPlaylist != null ||
+                onFavoriteCollection != null ||
+                onRenamePlaylist != null ||
+                onDeletePlaylist != null
+        val isPlaylist = onDeletePlaylist != null || onRenamePlaylist != null
+
+        Row(
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .fillMaxWidth()
+                .statusBarsPadding()
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(44.dp)
+                    .clip(CircleShape)
+                    .background(
+                        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = AuraActionButtons.BackgroundAlpha),
+                        CircleShape
+                    )
+                    .border(
+                        width = 1.dp,
+                        color = MaterialTheme.colorScheme.outline.copy(alpha = AuraActionButtons.BorderAlpha),
+                        shape = CircleShape
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                IconButton(onClick = onBack) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = "Back",
+                        tint = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.size(23.dp)
+                    )
+                }
+            }
+
+            if (showMenuButton && hasMenuItems) {
+                Box {
+                    Box(
+                        modifier = Modifier
+                            .size(44.dp)
+                            .clip(CircleShape)
+                            .background(
+                                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = AuraActionButtons.BackgroundAlpha),
+                                CircleShape
+                            )
+                            .border(
+                                width = 1.dp,
+                                color = MaterialTheme.colorScheme.outline.copy(alpha = AuraActionButtons.BorderAlpha),
+                                shape = CircleShape
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        IconButton(onClick = { showTopMenu = true }) {
+                            Icon(
+                                imageVector = Icons.Default.MoreHoriz,
+                                contentDescription = "Playlist Options",
+                                tint = MaterialTheme.colorScheme.onSurface,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
+                    }
+                    DropdownMenu(
+                        expanded = showTopMenu,
+                        onDismissRequest = { showTopMenu = false }
+                    ) {
+                        if (onAddCollectionToQueue != null) {
+                            DropdownMenuItem(
+                                text = { Text(if (isPlaylist) "Add Playlist to Queue" else "Add All to Queue", fontWeight = FontWeight.SemiBold) },
+                                leadingIcon = { Icon(Icons.AutoMirrored.Filled.QueueMusic, contentDescription = null) },
+                                onClick = {
+                                    showTopMenu = false
+                                    onAddCollectionToQueue()
+                                }
+                            )
+                        }
+                        if (onAddCollectionToPlaylist != null) {
+                            DropdownMenuItem(
+                                text = { Text(if (isPlaylist) "Add Playlist to..." else "Add All to Playlist...", fontWeight = FontWeight.SemiBold) },
+                                leadingIcon = { Icon(Icons.AutoMirrored.Filled.PlaylistAdd, contentDescription = null) },
+                                onClick = {
+                                    showTopMenu = false
+                                    onAddCollectionToPlaylist()
+                                }
+                            )
+                        }
+                        if (onFavoriteCollection != null) {
+                            DropdownMenuItem(
+                                text = { Text("Add All to Favorites", fontWeight = FontWeight.SemiBold) },
+                                leadingIcon = { Icon(Icons.Default.Favorite, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
+                                onClick = {
+                                    showTopMenu = false
+                                    onFavoriteCollection()
+                                }
+                            )
+                        }
+                        if (onRenamePlaylist != null) {
+                            DropdownMenuItem(
+                                text = { Text("Rename Playlist", fontWeight = FontWeight.SemiBold) },
+                                leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null) },
+                                onClick = {
+                                    showTopMenu = false
+                                    onRenamePlaylist()
+                                }
+                            )
+                        }
+                        if (onDeletePlaylist != null) {
+                            DropdownMenuItem(
+                                text = { Text("Delete Playlist", fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.error) },
+                                leadingIcon = { Icon(Icons.Default.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
+                                onClick = {
+                                    showTopMenu = false
+                                    onDeletePlaylist()
+                                }
+                            )
                         }
                     }
                 }

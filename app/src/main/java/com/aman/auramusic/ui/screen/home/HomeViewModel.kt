@@ -77,7 +77,10 @@ data class ArtistProfileData(
     val onlineSongs: List<OnlineSong> = emptyList(),
     val localSongs: List<Song> = emptyList(),
     val onlineAlbums: List<OnlinePlaylist> = emptyList(),
-    val audienceText: String? = null
+    val audienceText: String? = null,
+    val similarArtists: List<ArtistItem> = emptyList(),
+    val bio: com.aman.auramusic.online.network.repository.ArtistBioData? = null,
+    val loadErrorMessage: String? = null
 )
 
 data class CategoryDiscoverItem(
@@ -827,26 +830,39 @@ class HomeViewModel @Inject constructor(
             }
         }
 
-        val catalogue = if (!resolvedBrowseId.isNullOrBlank()) {
-            try {
-                youtubeArtistRepository.getArtistCatalogue(artistName, resolvedBrowseId)
-            } catch (e: Exception) {
-                if (e is CancellationException) throw e
-                com.aman.auramusic.online.network.repository.ArtistCatalogue()
-            }
-        } else {
-            com.aman.auramusic.online.network.repository.ArtistCatalogue()
+        // The repository also has a strict, artist-verified search fallback for
+        // local artists that do not resolve to a YouTube Music browse ID.
+        val catalogue = try {
+            youtubeArtistRepository.getArtistCatalogue(artistName, resolvedBrowseId)
+        } catch (e: Exception) {
+            if (e is CancellationException) throw e
+            com.aman.auramusic.online.network.repository.ArtistCatalogue(
+                loadErrorMessage = "Unable to load this artist's catalogue. Check your connection and try again."
+            )
         }
 
         val audienceText = catalogue.subscriberCountText?.takeIf { it.isNotBlank() }
             ?: (localArtistMetadataCache[normalizeArtistComparable(artistName)] ?: cachedDiscoveredArtists.firstOrNull { matchesArtistName(it.name, artistName) })?.subscriberCountText?.takeIf { it.isNotBlank() }
             ?: (if (artist.isOnline && artist.songCountText.isNotBlank()) artist.songCountText else null)
 
+        val similarArtistItems = catalogue.similarArtists.map {
+            ArtistItem(
+                name = it.name,
+                songCountText = it.subscriberCountText.orEmpty(),
+                artworkModel = it.profileImageUrl,
+                isOnline = true,
+                artistId = it.id
+            )
+        }
+
         ArtistProfileData(
             onlineSongs = catalogue.songs.filter { it.source == AudioSource.YOUTUBE }.distinctBy { it.id },
             localSongs = localFiltered,
             onlineAlbums = catalogue.albums,
-            audienceText = audienceText
+            audienceText = audienceText,
+            similarArtists = similarArtistItems,
+            bio = catalogue.bio,
+            loadErrorMessage = catalogue.loadErrorMessage
         )
     }
 

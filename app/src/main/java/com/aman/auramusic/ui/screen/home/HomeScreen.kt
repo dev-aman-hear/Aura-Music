@@ -23,16 +23,14 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.aman.auramusic.data.model.PlaybackHistoryEntry
 import com.aman.auramusic.data.model.Song
-import com.aman.auramusic.online.model.AudioSource
 import com.aman.auramusic.online.model.OnlinePlaylist
 import com.aman.auramusic.online.model.OnlineSong
 import com.aman.auramusic.online.model.SavedOnlineArtist
 import com.aman.auramusic.online.model.toSong
-import com.aman.auramusic.online.network.repository.YouTubeArtistRepositoryImpl
+import com.aman.auramusic.online.network.repository.ArtistBioData
 import com.aman.auramusic.ui.component.AuraEmptyState
 import com.aman.auramusic.ui.component.SongOptionsDialog
 import com.aman.auramusic.ui.screen.OnlinePlaylistDetailScreen
-import com.aman.auramusic.ui.theme.AuraPrimary
 import com.aman.auramusic.ui.theme.AuraScreenBackground
 import com.aman.auramusic.ui.theme.LocalIsDark
 import kotlinx.coroutines.launch
@@ -86,7 +84,39 @@ fun HomeScreen(
     var artistLocalSongs by remember { mutableStateOf<List<Song>>(emptyList()) }
     var artistOnlineAlbums by remember { mutableStateOf<List<OnlinePlaylist>>(emptyList()) }
     var artistAudienceText by remember { mutableStateOf<String?>(null) }
+    var artistSimilarArtists by remember { mutableStateOf<List<ArtistItem>>(emptyList()) }
+    var artistBioData by remember { mutableStateOf<ArtistBioData?>(null) }
+    var artistLoadErrorMessage by remember { mutableStateOf<String?>(null) }
     var isArtistLoading by remember { mutableStateOf(false) }
+
+    val openArtistDetail: (ArtistItem) -> Unit = { artistItem ->
+        selectedArtist = artistItem
+        artistOnlineSongs = emptyList()
+        artistLocalSongs = emptyList()
+        artistOnlineAlbums = emptyList()
+        artistSimilarArtists = emptyList()
+        artistBioData = null
+        artistAudienceText = null
+        artistLoadErrorMessage = null
+        coroutineScope.launch {
+            isArtistLoading = true
+            try {
+                val catalogue = viewModel.fetchArtistCatalogue(artistItem, songs)
+                artistOnlineSongs = catalogue.onlineSongs
+                artistLocalSongs = catalogue.localSongs
+                artistOnlineAlbums = catalogue.onlineAlbums
+                artistAudienceText = catalogue.audienceText
+                artistSimilarArtists = catalogue.similarArtists
+                artistBioData = catalogue.bio
+                artistLoadErrorMessage = catalogue.loadErrorMessage
+            } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
+                artistLoadErrorMessage = "Unable to load this artist's catalogue. Check your connection and try again."
+            } finally {
+                isArtistLoading = false
+            }
+        }
+    }
 
     var selectedOnlineAlbum by remember { mutableStateOf<OnlinePlaylist?>(null) }
     var selectedOnlineAlbumSongs by remember { mutableStateOf<List<OnlineSong>>(emptyList()) }
@@ -95,6 +125,36 @@ fun HomeScreen(
     var showAllArtistsSheet by remember { mutableStateOf(false) }
     var showAllQuickHitsSheet by remember { mutableStateOf(false) }
     var showAllCategoriesSheet by remember { mutableStateOf(false) }
+
+    val isArtistItemSaved: (ArtistItem) -> Boolean = remember(savedOnlineArtists) {
+        { artistItem ->
+            savedOnlineArtists.any {
+                (artistItem.artistId.isNotBlank() && it.id == artistItem.artistId) ||
+                        it.name.equals(artistItem.name, ignoreCase = true)
+            }
+        }
+    }
+
+    val toggleSaveArtistItem: (ArtistItem) -> Unit = remember(savedOnlineArtists, onSaveOnlineArtist, onRemoveSavedOnlineArtist) {
+        { artistItem ->
+            val savedEntry = savedOnlineArtists.firstOrNull {
+                (artistItem.artistId.isNotBlank() && it.id == artistItem.artistId) ||
+                        it.name.equals(artistItem.name, ignoreCase = true)
+            }
+            if (savedEntry != null) {
+                onRemoveSavedOnlineArtist?.invoke(savedEntry.id)
+            } else {
+                coroutineScope.launch {
+                    val resolved = viewModel.resolveArtistForLibrary(artistItem)
+                    if (resolved != null) {
+                        onSaveOnlineArtist?.invoke(resolved)
+                    } else {
+                        Toast.makeText(context, "Could not resolve artist for library", Toast.LENGTH_SHORT).show()
+                    }
+                }
+            }
+        }
+    }
 
     LaunchedEffect(songs, history) {
         viewModel.loadData(songs, history)
@@ -107,6 +167,9 @@ fun HomeScreen(
             artistLocalSongs = emptyList()
             artistOnlineAlbums = emptyList()
             artistAudienceText = null
+            artistSimilarArtists = emptyList()
+            artistBioData = null
+            artistLoadErrorMessage = null
             selectedOnlineAlbum = null
             selectedOnlineAlbumSongs = emptyList()
             selectedCategory = null
@@ -169,18 +232,7 @@ fun HomeScreen(
     if (showAllArtistsSheet) {
         AllArtistsSheet(
             artists = uiState.artists,
-            onArtistClick = { artistItem ->
-                selectedArtist = artistItem
-                coroutineScope.launch {
-                    isArtistLoading = true
-                    val catalogue = viewModel.fetchArtistCatalogue(artistItem, songs)
-                    artistOnlineSongs = catalogue.onlineSongs
-                    artistLocalSongs = catalogue.localSongs
-                    artistOnlineAlbums = catalogue.onlineAlbums
-                    artistAudienceText = catalogue.audienceText
-                    isArtistLoading = false
-                }
-            },
+            onArtistClick = openArtistDetail,
             onDismiss = { showAllArtistsSheet = false }
         )
     }
@@ -285,7 +337,7 @@ fun HomeScreen(
                 LazyColumn(
                     state = listState,
                     modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(bottom = 160.dp)
+                    contentPadding = PaddingValues(bottom = 80.dp)
                 ) {
                     item(key = "home_header") {
                         HomeHeader(
@@ -377,18 +429,7 @@ fun HomeScreen(
                         item(key = "home_artists_section") {
                             ArtistsSection(
                                 artists = uiState.artists,
-                                onArtistClick = { artistItem ->
-                                    selectedArtist = artistItem
-                                    coroutineScope.launch {
-                                        isArtistLoading = true
-                                        val catalogue = viewModel.fetchArtistCatalogue(artistItem, songs)
-                                        artistOnlineSongs = catalogue.onlineSongs
-                                        artistLocalSongs = catalogue.localSongs
-                                        artistOnlineAlbums = catalogue.onlineAlbums
-                                        artistAudienceText = catalogue.audienceText
-                                        isArtistLoading = false
-                                    }
-                                },
+                                onArtistClick = openArtistDetail,
                                 onSeeAllClick = { showAllArtistsSheet = true }
                             )
                         }
@@ -494,28 +535,22 @@ fun HomeScreen(
                 onlineSongs = artistOnlineSongs,
                 localSongs = artistLocalSongs,
                 onlineAlbums = artistOnlineAlbums,
+                similarArtists = artistSimilarArtists,
+                bioData = artistBioData,
                 isLoading = isArtistLoading,
+                errorMessage = artistLoadErrorMessage,
                 isSavedInLibrary = isArtistSaved,
                 audienceText = artistAudienceText,
-                onToggleSaveToLibrary = {
-                    if (isArtistSaved) {
-                        savedArtistEntry?.let { onRemoveSavedOnlineArtist?.invoke(it.id) }
-                    } else {
-                        coroutineScope.launch {
-                            val resolved = viewModel.resolveArtistForLibrary(curArtist)
-                            if (resolved != null) {
-                                onSaveOnlineArtist?.invoke(resolved)
-                            } else {
-                                Toast.makeText(context, "Could not resolve artist for library", Toast.LENGTH_SHORT).show()
-                            }
-                        }
-                    }
-                },
+                onToggleSaveToLibrary = { toggleSaveArtistItem(curArtist) },
                 onDismiss = {
                     selectedArtist = null
                     artistOnlineSongs = emptyList()
                     artistLocalSongs = emptyList()
                     artistOnlineAlbums = emptyList()
+                    artistSimilarArtists = emptyList()
+                    artistBioData = null
+                    artistAudienceText = null
+                    artistLoadErrorMessage = null
                 },
                 onPlaySong = onSongSelected,
                 onPlayOnlineSong = onOnlineSongSelected,
@@ -544,7 +579,8 @@ fun HomeScreen(
                         selectedOnlineAlbumSongs = viewModel.fetchAlbumTracks(album)
                         isAlbumLoading = false
                     }
-                }
+                },
+                onSelectSimilarArtist = openArtistDetail
             )
         }
     }
