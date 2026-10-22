@@ -13,13 +13,11 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.MusicNote
@@ -37,7 +35,6 @@ import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.aman.auramusic.data.model.Song
@@ -45,11 +42,13 @@ import com.aman.auramusic.online.model.AudioSource
 import com.aman.auramusic.online.model.OnlineSong
 import com.aman.auramusic.online.network.repository.OnlineMusicRepository
 import com.aman.auramusic.online.player.OnlinePlaybackManager
-import com.aman.auramusic.ui.component.AuraArtwork
 import com.aman.auramusic.ui.component.AuraEmptyState
 import com.aman.auramusic.ui.component.SectionHeader
 import com.aman.auramusic.ui.component.SongRow
 import com.aman.auramusic.ui.theme.AuraScreenBackground
+import com.aman.auramusic.data.model.AppSettings
+import com.aman.auramusic.ui.theme.AppArea
+import com.aman.auramusic.ui.theme.AppThemedScreen
 import com.aman.auramusic.ui.theme.LocalIsDark
 import kotlinx.coroutines.delay
 
@@ -116,12 +115,16 @@ fun SearchScreen(
     onSongSelected: (Song, List<Song>) -> Unit,
     onFavoriteToggle: (Song) -> Unit,
     onAddToPlaylist: (Song) -> Unit,
+    onPlayNext: (Song) -> Unit = {},
     onAddToQueue: (Song) -> Unit = {},
     onAlbumSelected: (String) -> Unit,
     onArtistSelected: (String) -> Unit,
     onlinePlaybackManager: OnlinePlaybackManager? = null,
     onOnlineSongSelected: (OnlineSong, List<OnlineSong>) -> Unit = { _, _ -> },
+    onOnlinePlayNext: ((OnlineSong) -> Unit)? = null,
+    onOnlineAddToQueue: ((OnlineSong) -> Unit)? = null,
     onAddOnlineSongToPlaylist: ((OnlineSong) -> Unit)? = null,
+    appSettings: AppSettings = AppSettings(),
     modifier: Modifier = Modifier
 ) {
     val isDark = LocalIsDark.current
@@ -334,9 +337,19 @@ fun SearchScreen(
     }
 
     // Base background: Adaptive Dark / Light Canvas with ambient color blooms
-    AuraScreenBackground(
-        modifier = modifier
+    val searchArtwork = remember(onlineResults, songs) {
+        onlineResults.firstOrNull { it.artworkUrl.isNotBlank() }?.artworkUrl
+            ?: songs.firstOrNull { it.artworkUri != null }?.artworkUri
+    }
+
+    AppThemedScreen(
+        area = AppArea.EXPLORE,
+        artworkModel = searchArtwork,
+        appSettings = appSettings
     ) {
+        AuraScreenBackground(
+            modifier = modifier
+        ) {
         LazyColumn(
             state = searchListState,
             modifier = Modifier.fillMaxSize(),
@@ -683,6 +696,7 @@ fun SearchScreen(
                                 onPlayNow = { onSongSelected(song, filteredLocalSongs) },
                                 onToggleFavorite = { onFavoriteToggle(song) },
                                 onAddToPlaylist = { onAddToPlaylist(song) },
+                                onPlayNext = { onPlayNext(song) },
                                 onAddToQueue = { onAddToQueue(song) },
                                 onClick = { onSongSelected(song, filteredLocalSongs) }
                             )
@@ -709,6 +723,8 @@ fun SearchScreen(
                                 isPlaying = isPlaying,
                                 onClick = { onOnlineSongSelected(onlineSong, onlineResults) },
                                 onPlayNow = { onOnlineSongSelected(onlineSong, onlineResults) },
+                                onPlayNext = onOnlinePlayNext?.let { cb -> { cb(onlineSong) } },
+                                onAddToQueue = onOnlineAddToQueue?.let { cb -> { cb(onlineSong) } },
                                 onAddToPlaylist = onAddOnlineSongToPlaylist?.let { cb -> { cb(onlineSong) } }
                             )
                         }
@@ -765,6 +781,7 @@ fun SearchScreen(
                                     onPlayNow = { onSongSelected(song, artistLocalSongs) },
                                     onToggleFavorite = { onFavoriteToggle(song) },
                                     onAddToPlaylist = { onAddToPlaylist(song) },
+                                    onPlayNext = { onPlayNext(song) },
                                     onAddToQueue = { onAddToQueue(song) },
                                     onClick = { onSongSelected(song, artistLocalSongs) }
                                 )
@@ -777,6 +794,8 @@ fun SearchScreen(
                                     isPlaying = isPlaying,
                                     onClick = { onOnlineSongSelected(onlineSong, artistOnlineSongs) },
                                     onPlayNow = { onOnlineSongSelected(onlineSong, artistOnlineSongs) },
+                                    onPlayNext = onOnlinePlayNext?.let { cb -> { cb(onlineSong) } },
+                                    onAddToQueue = onOnlineAddToQueue?.let { cb -> { cb(onlineSong) } },
                                     onAddToPlaylist = onAddOnlineSongToPlaylist?.let { cb -> { cb(onlineSong) } }
                                 )
                             }
@@ -829,6 +848,7 @@ fun SearchScreen(
                                     onPlayNow = { onSongSelected(song, albumLocalSongs) },
                                     onToggleFavorite = { onFavoriteToggle(song) },
                                     onAddToPlaylist = { onAddToPlaylist(song) },
+                                    onPlayNext = { onPlayNext(song) },
                                     onAddToQueue = { onAddToQueue(song) },
                                     onClick = { onSongSelected(song, albumLocalSongs) }
                                 )
@@ -841,6 +861,8 @@ fun SearchScreen(
                                     isPlaying = isPlaying,
                                     onClick = { onOnlineSongSelected(onlineSong, albumOnlineSongs) },
                                     onPlayNow = { onOnlineSongSelected(onlineSong, albumOnlineSongs) },
+                                    onPlayNext = onOnlinePlayNext?.let { cb -> { cb(onlineSong) } },
+                                    onAddToQueue = onOnlineAddToQueue?.let { cb -> { cb(onlineSong) } },
                                     onAddToPlaylist = onAddOnlineSongToPlaylist?.let { cb -> { cb(onlineSong) } }
                                 )
                             }
@@ -883,171 +905,5 @@ fun SearchScreen(
             }
         }
     }
-}
-
-/**
- * Clean monochrome category card for search genres.
- */
-@Composable
-fun CategoryCard(
-    category: SearchCategory,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val cardShape = RoundedCornerShape(22.dp)
-
-    Box(
-        modifier = modifier
-            .fillMaxWidth()
-            .height(130.dp)
-            .clip(cardShape)
-            .background(MaterialTheme.colorScheme.surface, cardShape)
-            .border(BorderStroke(1.dp, MaterialTheme.colorScheme.outline), cardShape)
-            .clickable(onClick = onClick)
-            .padding(16.dp),
-        contentAlignment = Alignment.Center
-    ) {
-        Text(
-            text = category.title,
-            color = MaterialTheme.colorScheme.onSurface,
-            fontSize = 17.5.sp,
-            fontWeight = FontWeight.Bold,
-            letterSpacing = (-0.2).sp,
-            textAlign = TextAlign.Center
-        )
-    }
-}
-
-/**
- * Top Artist Highlight Card for prominent search matches
- */
-@Composable
-fun TopArtistResultCard(
-    artistName: String,
-    songCount: Int,
-    artworkModel: Any?,
-    onClick: () -> Unit
-) {
-    val isDark = LocalIsDark.current
-    val textPrimary = MaterialTheme.colorScheme.onSurface
-    val textSecondary = MaterialTheme.colorScheme.onSurfaceVariant
-
-    val cardShape = RoundedCornerShape(20.dp)
-
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 20.dp, vertical = 8.dp)
-            .clip(cardShape)
-            .background(MaterialTheme.colorScheme.surface, cardShape)
-            .border(BorderStroke(1.dp, MaterialTheme.colorScheme.outline), cardShape)
-            .clickable(onClick = onClick)
-            .padding(16.dp)
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            AuraArtwork(
-                model = artworkModel,
-                size = 64,
-                shape = CircleShape,
-                modifier = Modifier.size(64.dp)
-            )
-
-            Spacer(modifier = Modifier.width(16.dp))
-
-            Column(modifier = Modifier.weight(1f)) {
-                Surface(
-                    color = MaterialTheme.colorScheme.surfaceVariant,
-                    shape = RoundedCornerShape(6.dp)
-                ) {
-                    Text(
-                        text = "TOP MATCH",
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = 1.sp,
-                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(4.dp))
-
-                Text(
-                    text = artistName,
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = textPrimary,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-
-                Text(
-                    text = "Artist • $songCount tracks in library",
-                    fontSize = 13.sp,
-                    color = textSecondary
-                )
-            }
-
-            Icon(
-                imageVector = Icons.Default.ChevronRight,
-                contentDescription = null,
-                tint = textSecondary,
-                modifier = Modifier.size(20.dp)
-            )
-        }
-    }
-}
-
-@Composable
-fun SearchMediaRow(
-    title: String,
-    subtitle: String,
-    artworkModel: Any?,
-    isCircular: Boolean = false,
-    onClick: () -> Unit
-) {
-    val textPrimary = MaterialTheme.colorScheme.onSurface
-    val textSecondary = MaterialTheme.colorScheme.onSurfaceVariant
-
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(horizontal = 20.dp, vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        AuraArtwork(
-            model = artworkModel,
-            size = 52,
-            shape = if (isCircular) CircleShape else RoundedCornerShape(12.dp),
-            modifier = Modifier.size(52.dp)
-        )
-        Spacer(modifier = Modifier.width(14.dp))
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = title,
-                fontSize = 15.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = textPrimary,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-            Spacer(modifier = Modifier.height(2.dp))
-            Text(
-                text = subtitle,
-                fontSize = 12.5.sp,
-                color = textSecondary,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-        }
-        Icon(
-            imageVector = Icons.Default.ChevronRight,
-            contentDescription = null,
-            tint = textSecondary,
-            modifier = Modifier.size(18.dp)
-        )
     }
 }

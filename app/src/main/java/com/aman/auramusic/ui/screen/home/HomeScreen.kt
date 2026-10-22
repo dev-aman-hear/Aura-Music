@@ -33,6 +33,9 @@ import com.aman.auramusic.ui.component.SongOptionsDialog
 import com.aman.auramusic.ui.screen.OnlinePlaylistDetailScreen
 import com.aman.auramusic.ui.theme.AuraScreenBackground
 import com.aman.auramusic.ui.theme.LocalIsDark
+import com.aman.auramusic.data.model.AppSettings
+import com.aman.auramusic.ui.theme.AppArea
+import com.aman.auramusic.ui.theme.AppThemedScreen
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Calendar
@@ -52,6 +55,7 @@ fun HomeScreen(
     onSongSelected: (Song, List<Song>) -> Unit,
     onFavoriteToggle: (Song) -> Unit,
     onAddToPlaylist: (Song) -> Unit,
+    onPlayNext: (Song) -> Unit = {},
     onAddToQueue: (Song) -> Unit = {},
     onOnlineSongSelected: (OnlineSong, List<OnlineSong>) -> Unit = { _, _ -> },
     onAlbumSelected: (String) -> Unit,
@@ -64,6 +68,7 @@ fun HomeScreen(
     onRemoveSavedOnlineArtist: ((String) -> Unit)? = null,
     onSaveOnlineAlbum: ((OnlinePlaylist) -> Unit)? = null,
     onRemoveSavedOnlineAlbum: ((String) -> Unit)? = null,
+    appSettings: AppSettings = AppSettings(),
     homeResetKey: Int = 0,
     modifier: Modifier = Modifier,
     viewModel: HomeViewModel = hiltViewModel()
@@ -293,6 +298,10 @@ fun HomeScreen(
                 onAddToPlaylist(selectedSongOptions!!)
                 selectedSongOptions = null
             },
+            onPlayNext = {
+                onPlayNext(selectedSongOptions!!)
+                selectedSongOptions = null
+            },
             onAddToQueue = {
                 onAddToQueue(selectedSongOptions!!)
                 selectedSongOptions = null
@@ -300,9 +309,20 @@ fun HomeScreen(
         )
     }
 
-    AuraScreenBackground(
-        modifier = modifier
+    val homeArtwork = remember(uiState.featuredItem, uiState.featuredTracks, songs) {
+        uiState.featuredItem?.artworkUrl
+            ?: uiState.featuredTracks.firstOrNull()?.artworkUrl
+            ?: songs.firstOrNull { it.artworkUri != null }?.artworkUri
+    }
+
+    AppThemedScreen(
+        area = AppArea.HOME,
+        artworkModel = homeArtwork,
+        appSettings = appSettings
     ) {
+        AuraScreenBackground(
+            modifier = modifier
+        ) {
         if (uiState.isLoading && songs.isEmpty() && uiState.trendingTracks.isEmpty()) {
             Box(
                 modifier = Modifier.fillMaxSize(),
@@ -505,6 +525,7 @@ fun HomeScreen(
                 isLoading = isAlbumLoading,
                 isSavedInLibrary = isAlbumSaved,
                 showAddButton = true,
+                appSettings = appSettings,
                 onToggleSaveToLibrary = {
                     if (isAlbumSaved) {
                         onRemoveSavedOnlineAlbum?.invoke(curAlbum.id)
@@ -540,6 +561,7 @@ fun HomeScreen(
                 isLoading = isArtistLoading,
                 errorMessage = artistLoadErrorMessage,
                 isSavedInLibrary = isArtistSaved,
+                appSettings = appSettings,
                 audienceText = artistAudienceText,
                 onToggleSaveToLibrary = { toggleSaveArtistItem(curArtist) },
                 onDismiss = {
@@ -584,4 +606,5 @@ fun HomeScreen(
             )
         }
     }
+}
 }

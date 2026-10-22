@@ -56,6 +56,7 @@ import com.aman.auramusic.ui.screen.home.ArtistDetailSheet
 import com.aman.auramusic.ui.screen.home.ArtistItem
 import com.aman.auramusic.util.ArtistArtworkCache
 import com.aman.auramusic.util.ArtistHelper
+import com.aman.auramusic.data.model.AppSettings
 import com.aman.auramusic.ui.theme.*
 
 private fun formatArtistAudience(raw: String?): String {
@@ -122,8 +123,17 @@ fun LibraryScreen(
     onSaveOnlineAlbum: ((OnlinePlaylist) -> Unit)? = null,
     onRemoveSavedOnlineAlbum: ((String) -> Unit)? = null,
     onAddOnlineSongToPlaylist: ((OnlineSong) -> Unit)? = null,
+    onPlayNext: ((Song) -> Unit)? = null,
+    onAddToQueue: ((Song) -> Unit)? = null,
+    onOnlinePlayNext: ((OnlineSong) -> Unit)? = null,
+    onOnlineAddToQueue: ((OnlineSong) -> Unit)? = null,
+    onPlayNextSongs: ((List<Song>) -> Unit)? = null,
+    onAddSongsToQueue: ((List<Song>) -> Unit)? = null,
+    onPlayNextOnlineSongs: ((List<OnlineSong>) -> Unit)? = null,
+    onAddOnlineSongsToQueue: ((List<OnlineSong>) -> Unit)? = null,
     selectedTab: LibraryTab = LibraryTab.SONGS,
     onTabSelected: (LibraryTab) -> Unit = {},
+    appSettings: AppSettings = AppSettings(),
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -265,7 +275,12 @@ fun LibraryScreen(
             onSongSelected = { onSongSelected(it, albumSongs) },
             onToggleFavorite = onFavoriteToggle,
             onAddToPlaylist = onAddToPlaylist,
-            showAddButton = false
+            onPlayNext = onPlayNext?.let { cb -> { cb(it) } },
+            onAddToQueue = onAddToQueue?.let { cb -> { cb(it) } },
+            onPlayNextCollection = onPlayNextSongs?.let { cb -> { cb(albumSongs) } },
+            onAddCollectionToQueue = onAddSongsToQueue?.let { cb -> { cb(albumSongs) } },
+            showAddButton = false,
+            appSettings = appSettings
         )
         return
     }
@@ -284,6 +299,7 @@ fun LibraryScreen(
             isLoading = isPlaylistDetailLoading,
             isSavedInLibrary = isSaved,
             showAddButton = true,
+            appSettings = appSettings,
             onToggleSaveToLibrary = {
                 val cur = selectedOnlinePlaylist ?: return@OnlinePlaylistDetailScreen
                 if (isSaved) {
@@ -308,6 +324,10 @@ fun LibraryScreen(
                 }
             },
             onAddOnlineSongToPlaylist = onAddOnlineSongToPlaylist,
+            onPlayNext = onOnlinePlayNext,
+            onAddToQueue = onOnlineAddToQueue,
+            onPlayNextCollection = onPlayNextOnlineSongs,
+            onAddCollectionToQueue = onAddOnlineSongsToQueue,
             onBack = { selectedOnlinePlaylist = null },
             onSongSelected = { song, queue ->
                 onOnlineSongSelected(song, queue)
@@ -351,6 +371,7 @@ fun LibraryScreen(
             isLoading = isArtistDetailLoading,
             errorMessage = artistDetailErrorMessage,
             isSavedInLibrary = isSaved,
+            appSettings = appSettings,
             onToggleSaveToLibrary = {
                 if (isSaved) {
                     savedArtistEntry?.let { onRemoveSavedOnlineArtist?.invoke(it.id) }
@@ -534,7 +555,18 @@ fun LibraryScreen(
     val cardBg = MaterialTheme.colorScheme.surfaceVariant
     val cardBorder = MaterialTheme.colorScheme.outline
 
-    AuraScreenBackground(modifier = modifier) {
+    val libraryArtwork = remember(playlists, songs, favoriteSongs) {
+        playlists.firstOrNull { it.onlineSongs.any { os -> os.artworkUrl.isNotBlank() } }?.onlineSongs?.firstOrNull()?.artworkUrl
+            ?: songs.firstOrNull { it.artworkUri != null }?.artworkUri
+            ?: favoriteSongs.firstOrNull { it.artworkUri != null }?.artworkUri
+    }
+
+    AppThemedScreen(
+        area = AppArea.LIBRARY,
+        artworkModel = libraryArtwork,
+        appSettings = appSettings
+    ) {
+        AuraScreenBackground(modifier = modifier) {
     Column(
         modifier = Modifier.fillMaxSize()
     ) {
@@ -671,7 +703,7 @@ fun LibraryScreen(
                                         Icon(
                                             imageVector = Icons.Default.PlayArrow,
                                             contentDescription = null,
-                                            modifier = Modifier.size(18.dp)
+                                            modifier = Modifier.size(15.dp)
                                         )
                                         Spacer(modifier = Modifier.width(6.dp))
                                         Text("Play All (${filteredSongs.size})", fontWeight = FontWeight.Bold)
@@ -718,7 +750,9 @@ fun LibraryScreen(
                                     onClick = { onSongSelected(song, filteredSongs) },
                                     onPlayNow = { onSongSelected(song, filteredSongs) },
                                     onToggleFavorite = { onFavoriteToggle(song) },
-                                    onAddToPlaylist = { onAddToPlaylist(song) }
+                                    onAddToPlaylist = { onAddToPlaylist(song) },
+                                    onPlayNext = onPlayNext?.let { cb -> { cb(song) } },
+                                    onAddToQueue = onAddToQueue?.let { cb -> { cb(song) } }
                                 )
                             }
                         }
@@ -764,7 +798,7 @@ fun LibraryScreen(
                                         Icon(
                                             imageVector = Icons.Default.PlayArrow,
                                             contentDescription = null,
-                                            modifier = Modifier.size(18.dp)
+                                            modifier = Modifier.size(15.dp)
                                         )
                                         Spacer(modifier = Modifier.width(6.dp))
                                         Text("Play All (${filteredFavorites.size})", fontWeight = FontWeight.Bold)
@@ -810,7 +844,9 @@ fun LibraryScreen(
                                     onClick = { onSongSelected(song, filteredFavorites) },
                                     onPlayNow = { onSongSelected(song, filteredFavorites) },
                                     onToggleFavorite = { onFavoriteToggle(song) },
-                                    onAddToPlaylist = { onAddToPlaylist(song) }
+                                    onAddToPlaylist = { onAddToPlaylist(song) },
+                                    onPlayNext = onPlayNext?.let { cb -> { cb(song) } },
+                                    onAddToQueue = onAddToQueue?.let { cb -> { cb(song) } }
                                 )
                             }
                         }
@@ -1108,6 +1144,7 @@ fun LibraryScreen(
                 }
             }
         }
+    }
     }
     }
 }

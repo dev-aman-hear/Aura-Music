@@ -60,6 +60,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.ui.zIndex
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.material.icons.filled.Close
@@ -75,8 +76,6 @@ import androidx.compose.material.icons.filled.QueueMusic
 import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.material.icons.filled.RepeatOne
 import androidx.compose.material.icons.filled.Shuffle
-import androidx.compose.material.icons.filled.SkipNext
-import androidx.compose.material.icons.filled.SkipPrevious
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -89,7 +88,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -114,16 +112,17 @@ import coil.request.ImageRequest
 import com.aman.auramusic.data.model.AppSettings
 import com.aman.auramusic.data.model.LyricLine
 import com.aman.auramusic.data.model.Song
-import com.aman.auramusic.online.util.ArtworkQualityOptimizer
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.foundation.Canvas
 import androidx.compose.ui.geometry.Offset
 import com.aman.auramusic.playback.RepeatMode
 import com.aman.auramusic.ui.component.SongArtwork
+import com.aman.auramusic.ui.theme.CustomPaletteValidator
 import com.aman.auramusic.ui.theme.DynamicArtworkColorsHelper
 import com.aman.auramusic.ui.theme.LocalIsDark
 import com.aman.auramusic.ui.theme.PlayerArtworkPalette
 import com.aman.auramusic.ui.theme.PlayerColorScheme
+import com.aman.auramusic.ui.theme.PlayerPaletteMode
 import com.aman.auramusic.ui.theme.rememberPlayerColorScheme
 import com.aman.auramusic.util.audioQuality
 import com.aman.auramusic.util.formatDuration
@@ -179,14 +178,66 @@ fun PlayerScreen(
     val pagerState = rememberPagerState(initialPage = 1, pageCount = { 3 })
     val scope = rememberCoroutineScope()
 
-    var artworkPalette by remember(isDark) { mutableStateOf(PlayerArtworkPalette.neutral(isDark)) }
+    val paletteMode = if (!appSettings.isPlayerThemeActive()) {
+        PlayerPaletteMode.MONOCHROME
+    } else {
+        val style = appSettings.themeColorStyle.ifBlank { appSettings.playerThemeMode }
+        when {
+            style.equals("Dynamic Artwork", ignoreCase = true) -> PlayerPaletteMode.DYNAMIC_ARTWORK
+            style.equals("Custom", ignoreCase = true) || style.equals("Custom Palette", ignoreCase = true) -> PlayerPaletteMode.CUSTOM
+            else -> {
+                val preset = appSettings.appColorPreset.ifBlank { appSettings.colorPreset }
+                if (preset.equals("Monochrome", ignoreCase = true)) {
+                    PlayerPaletteMode.MONOCHROME
+                } else {
+                    PlayerPaletteMode.PRESET
+                }
+            }
+        }
+    }
 
-    LaunchedEffect(song.id, song.artworkUri, song.uri, isDark, appSettings.dynamicArtworkColors) {
-        if (appSettings.dynamicArtworkColors) {
-            val extracted = DynamicArtworkColorsHelper.extractPalette(context, song, isDark)
-            artworkPalette = extracted
-        } else {
-            artworkPalette = PlayerArtworkPalette.neutral(isDark)
+    val activePreset = remember(appSettings.appColorPreset, appSettings.colorPreset) {
+        val p = appSettings.appColorPreset.ifBlank { appSettings.colorPreset }
+        if (p.equals("Monochrome", ignoreCase = true)) "Midnight Indigo" else p
+    }
+    val activeHexes = remember(appSettings.appCustomPaletteHexes, appSettings.customPaletteHexes) {
+        appSettings.appCustomPaletteHexes.ifBlank { appSettings.customPaletteHexes }
+    }
+
+    val initialPalette = remember(isDark, paletteMode, activePreset, activeHexes) {
+        when (paletteMode) {
+            PlayerPaletteMode.DYNAMIC_ARTWORK -> PlayerArtworkPalette.neutral(isDark)
+            PlayerPaletteMode.PRESET -> PlayerArtworkPalette.fromPreset(activePreset, isDark)
+            PlayerPaletteMode.CUSTOM -> CustomPaletteValidator.createPaletteFromCustomHexes(activeHexes, isDark)
+            PlayerPaletteMode.MONOCHROME -> PlayerArtworkPalette.neutral(isDark)
+        }
+    }
+
+    var artworkPalette by remember(initialPalette) { mutableStateOf(initialPalette) }
+
+    LaunchedEffect(
+        song.id,
+        song.artworkUri,
+        song.uri,
+        isDark,
+        paletteMode,
+        activePreset,
+        activeHexes
+    ) {
+        when (paletteMode) {
+            PlayerPaletteMode.DYNAMIC_ARTWORK -> {
+                val extracted = DynamicArtworkColorsHelper.extractPalette(context, song, isDark)
+                artworkPalette = extracted
+            }
+            PlayerPaletteMode.PRESET -> {
+                artworkPalette = PlayerArtworkPalette.fromPreset(activePreset, isDark)
+            }
+            PlayerPaletteMode.CUSTOM -> {
+                artworkPalette = CustomPaletteValidator.createPaletteFromCustomHexes(activeHexes, isDark)
+            }
+            PlayerPaletteMode.MONOCHROME -> {
+                artworkPalette = PlayerArtworkPalette.neutral(isDark)
+            }
         }
     }
 
@@ -211,13 +262,16 @@ fun PlayerScreen(
         label = "ambientAccentAnimation"
     )
 
+    val isColored = paletteMode.isColored
+
     val playerColors = rememberPlayerColorScheme(
-        isDynamic = appSettings.dynamicArtworkColors,
+        isDynamic = isColored,
         isDark = isDark,
         primary = animatedPrimary,
         secondary = animatedSecondary,
         tertiary = animatedTertiary,
-        accent = animatedAccent
+        accent = animatedAccent,
+        paletteMode = paletteMode
     )
 
     val offsetY = remember { Animatable(0f) }
@@ -255,7 +309,7 @@ fun PlayerScreen(
             }
     ) {
         PlayerBackground(
-            enabled = appSettings.dynamicArtworkColors,
+            enabled = isColored,
             primaryColor = animatedPrimary,
             secondaryColor = animatedSecondary,
             tertiaryColor = animatedTertiary,
@@ -290,7 +344,7 @@ fun PlayerScreen(
 
             HorizontalPager(state = pagerState, modifier = Modifier.weight(1f), verticalAlignment = Alignment.Top, beyondViewportPageCount = 1) { page ->
                 when (page) {
-                    0 -> LyricsPage(lyrics, position, onSeek, appSettings.lyricFontScale, appSettings.karaokeMode)
+                    0 -> LyricsPage(lyrics, position, onSeek, appSettings.lyricFontScale, appSettings.karaokeMode, appSettings.lyricBlurStrength)
                     1 -> NowPlayingPage(
                         song = song,
                         isPlaying = isPlaying,
@@ -809,7 +863,7 @@ private fun NowPlayingPage(
 }
 
 @Composable
-private fun LyricsPage(lyrics: List<LyricLine>, position: Long, onSeek: (Long) -> Unit, fontScale: Float, karaokeMode: Boolean) {
+private fun LyricsPage(lyrics: List<LyricLine>, position: Long, onSeek: (Long) -> Unit, fontScale: Float, karaokeMode: Boolean, blurStrengthPercent: Float) {
     val activeIndex = lyrics.indexOfLast { it.timeMs <= position }.coerceAtLeast(0)
     val listState = rememberLazyListState()
     val density = LocalDensity.current
@@ -825,7 +879,7 @@ private fun LyricsPage(lyrics: List<LyricLine>, position: Long, onSeek: (Long) -
     LaunchedEffect(activeIndex) {
         if (lyrics.isNotEmpty()) {
             val screenHeight = configuration.screenHeightDp.dp
-            val scrollOffset = with(density) { (screenHeight * 0.35f).roundToPx() }
+            val scrollOffset = with(density) { (screenHeight * 0.28f).roundToPx() }
             listState.animateScrollToItem(index = activeIndex, scrollOffset = -scrollOffset)
         }
     }
@@ -837,8 +891,39 @@ private fun LyricsPage(lyrics: List<LyricLine>, position: Long, onSeek: (Long) -
             LazyColumn(state = listState, modifier = Modifier.fillMaxSize().padding(horizontal = 24.dp), verticalArrangement = Arrangement.spacedBy(28.dp)) {
                 item { Spacer(modifier = Modifier.height(100.dp)) }
                 itemsIndexed(lyrics) { index, line ->
-                    val opacity by animateFloatAsState(if (index == activeIndex) 1f else if (karaokeMode) 0.08f else 0.25f, label = "lyricOpacity")
-                    Text(line.text, style = MaterialTheme.typography.headlineLarge.copy(fontSize = MaterialTheme.typography.headlineLarge.fontSize * fontScale), fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onBackground.copy(alpha = opacity), modifier = Modifier.fillMaxWidth().pointerInput(line.timeMs) { detectTapGestures(onTap = { onSeek(line.timeMs) }) })
+                    val isActive = index == activeIndex
+                    val opacity by animateFloatAsState(if (isActive) 1f else if (karaokeMode) 0.08f else 0.25f, label = "lyricOpacity")
+                    val blurRadius by animateDpAsState(
+                        targetValue = when {
+                            isActive -> 0.dp
+                            index == activeIndex - 1 || index == activeIndex + 1 -> (blurStrengthPercent / 2f * 0.5f).dp
+                            else -> (blurStrengthPercent / 2f).dp
+                        },
+                        label = "lyricBlurRadius"
+                    )
+                    val lyricScale by animateFloatAsState(
+                        targetValue = if (isActive) 1.05f else 1f,
+                        animationSpec = tween(220),
+                        label = "activeLyricScale"
+                    )
+                    Text(
+                        text = line.text,
+                        style = MaterialTheme.typography.headlineLarge.copy(
+                            fontSize = MaterialTheme.typography.headlineLarge.fontSize * fontScale
+                        ),
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onBackground.copy(alpha = opacity),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .graphicsLayer {
+                                scaleX = lyricScale
+                                scaleY = lyricScale
+                            }
+                            .blur(blurRadius)
+                            .pointerInput(line.timeMs) {
+                                detectTapGestures(onTap = { onSeek(line.timeMs) })
+                            }
+                    )
                 }
                 item { Spacer(modifier = Modifier.height(240.dp)) }
             }
@@ -1285,7 +1370,7 @@ private fun PlayerControls(
                 )
             }
 
-            val playPauseColor = if (LocalIsDark.current) Color.White else Color.Black
+            val playPauseColor = playerColors.prominentSurface
             Box(
                 modifier = Modifier
                     .size(72.dp)

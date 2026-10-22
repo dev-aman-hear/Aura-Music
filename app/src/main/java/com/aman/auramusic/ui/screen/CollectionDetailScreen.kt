@@ -34,6 +34,9 @@ import com.aman.auramusic.data.model.Song
 import com.aman.auramusic.ui.component.SongArtwork
 import com.aman.auramusic.ui.theme.AuraActionButtons
 import com.aman.auramusic.ui.theme.AuraScreenBackground
+import com.aman.auramusic.data.model.AppSettings
+import com.aman.auramusic.ui.theme.AppArea
+import com.aman.auramusic.ui.theme.AppThemedScreen
 
 @Composable
 fun CollectionDetailScreen(
@@ -49,12 +52,17 @@ fun CollectionDetailScreen(
     onRenamePlaylist: (() -> Unit)? = null,
     onToggleFavorite: (Song) -> Unit,
     onAddToPlaylist: (Song) -> Unit,
+    onPlayNext: ((Song) -> Unit)? = null,
     onAddToQueue: ((Song) -> Unit)? = null,
+    onPlayNextCollection: (() -> Unit)? = null,
     onAddCollectionToQueue: (() -> Unit)? = null,
     onAddCollectionToPlaylist: (() -> Unit)? = null,
     onFavoriteCollection: (() -> Unit)? = null,
     showMenuButton: Boolean = true,
     showAddButton: Boolean = false,
+    appArea: AppArea? = null,
+    artworkModel: Any? = null,
+    appSettings: AppSettings = AppSettings()
 ) {
     val isDark = LocalIsDark.current
     val dynamicPrimary = MaterialTheme.colorScheme.primary
@@ -65,7 +73,19 @@ fun CollectionDetailScreen(
     var showTopMenu by remember { mutableStateOf(false) }
     var showPlusMenu by remember { mutableStateOf(false) }
 
-    AuraScreenBackground(modifier = Modifier.fillMaxSize()) {
+    val resolvedArea = appArea ?: if (subtitle.startsWith("Album", ignoreCase = true) || subtitle.contains("Chart", ignoreCase = true)) {
+        AppArea.ALBUM_DETAIL
+    } else {
+        AppArea.PLAYLIST_DETAIL
+    }
+    val resolvedArtwork = artworkModel ?: songs.firstOrNull { it.artworkUri != null }?.artworkUri
+
+    AppThemedScreen(
+        area = resolvedArea,
+        artworkModel = resolvedArtwork,
+        appSettings = appSettings
+    ) {
+        AuraScreenBackground(modifier = Modifier.fillMaxSize()) {
         Box(modifier = Modifier.fillMaxSize()) {
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
@@ -424,6 +444,16 @@ fun CollectionDetailScreen(
                                     onAddToPlaylist(song)
                                 }
                             )
+                            if (onPlayNext != null) {
+                                DropdownMenuItem(
+                                    text = { Text("Play Next", fontWeight = FontWeight.SemiBold) },
+                                    leadingIcon = { Icon(Icons.AutoMirrored.Filled.QueueMusic, contentDescription = null) },
+                                    onClick = {
+                                        itemMenuExpanded = false
+                                        onPlayNext(song)
+                                    }
+                                )
+                            }
                             if (onAddToQueue != null) {
                                 DropdownMenuItem(
                                     text = { Text("Add to Queue", fontWeight = FontWeight.SemiBold) },
@@ -614,6 +644,16 @@ fun CollectionDetailScreen(
                         expanded = showTopMenu,
                         onDismissRequest = { showTopMenu = false }
                     ) {
+                        if (onPlayNextCollection != null) {
+                            DropdownMenuItem(
+                                text = { Text(if (isPlaylist) "Play Playlist Next" else "Play All Next", fontWeight = FontWeight.SemiBold) },
+                                leadingIcon = { Icon(Icons.AutoMirrored.Filled.QueueMusic, contentDescription = null) },
+                                onClick = {
+                                    showTopMenu = false
+                                    onPlayNextCollection()
+                                }
+                            )
+                        }
                         if (onAddCollectionToQueue != null) {
                             DropdownMenuItem(
                                 text = { Text(if (isPlaylist) "Add Playlist to Queue" else "Add All to Queue", fontWeight = FontWeight.SemiBold) },
@@ -668,6 +708,7 @@ fun CollectionDetailScreen(
                 }
             }
         }
+    }
     }
     }
 }

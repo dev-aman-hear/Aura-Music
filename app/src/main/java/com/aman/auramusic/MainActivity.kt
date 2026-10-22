@@ -13,7 +13,6 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -21,60 +20,23 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
-import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.Image
-import androidx.compose.ui.res.painterResource
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.isSystemInDarkTheme
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.ChevronRight
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.LibraryMusic
-import androidx.compose.material.icons.filled.MusicNote
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.PlayCircle
-import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.ui.unit.sp
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -84,25 +46,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.aman.auramusic.data.model.Playlist
 import com.aman.auramusic.data.model.Song
-import com.aman.auramusic.data.model.ThemeMode
 import com.aman.auramusic.ui.component.MiniPlayer
-import com.aman.auramusic.ui.component.SongArtwork
-import com.aman.auramusic.ui.component.SongRow
-import com.aman.auramusic.ui.component.SongOptionsDialog
-import androidx.compose.ui.draw.shadow
 import com.aman.auramusic.ui.screen.home.HomeScreen
 import com.aman.auramusic.ui.screen.OnlineScreen
 import com.aman.auramusic.ui.screen.LibraryScreen
@@ -117,8 +67,6 @@ import com.aman.auramusic.online.model.toSong
 import com.aman.auramusic.online.model.toLyricLines
 import com.aman.auramusic.online.util.LastPlayedStore
 import com.aman.auramusic.online.ui.components.StreamDiagnosticsSheet
-import com.aman.auramusic.data.model.LyricLine
-import com.aman.auramusic.playback.RepeatMode
 import com.aman.auramusic.viewmodel.QueueEntry
 import com.aman.auramusic.ui.screen.PlayerScreen
 import com.aman.auramusic.ui.screen.SearchScreen
@@ -127,14 +75,17 @@ import com.aman.auramusic.ui.screen.SettingsScreen
 import com.aman.auramusic.ui.screen.CollectionDetailScreen
 import com.aman.auramusic.ui.screen.home.ArtistDetailSheet
 import com.aman.auramusic.ui.screen.home.ArtistItem
+import com.aman.auramusic.ui.theme.AppArea
+import com.aman.auramusic.ui.theme.AppThemedScreen
 import com.aman.auramusic.online.network.repository.ArtistBioData
 import com.aman.auramusic.online.network.repository.YouTubeArtistRepositoryImpl
 import com.aman.auramusic.online.network.repository.OnlineMusicRepository
 import com.aman.auramusic.online.model.SavedOnlineArtist
 import com.aman.auramusic.online.model.AudioSource
+import com.aman.auramusic.util.SongIdentityMatcher
+import com.aman.auramusic.util.OnlineSongQueueResolver
 import com.aman.auramusic.ui.component.BottomNavBar
 import com.aman.auramusic.ui.component.AppTab
-import com.aman.auramusic.ui.component.MadeForYouCard
 import com.aman.auramusic.ui.component.AddToPlaylistDialog
 import com.aman.auramusic.ui.component.ExportPlaylistDialog
 import com.aman.auramusic.ui.component.ImportResultDialog
@@ -142,6 +93,7 @@ import com.aman.auramusic.ui.component.NewPlaylistDialog
 import com.aman.auramusic.ui.component.RenamePlaylistDialog
 import com.aman.auramusic.ui.screen.AboutDialog
 import com.aman.auramusic.ui.theme.AuraMusicTheme
+import com.aman.auramusic.ui.theme.RgbBorderAnimationHost
 import com.aman.auramusic.viewmodel.MusicViewModel
 import com.aman.auramusic.viewmodel.PlayerViewModel
 import dagger.hilt.android.AndroidEntryPoint
@@ -167,7 +119,9 @@ class MainActivity : ComponentActivity() {
             AuraMusicTheme(
                 themeMode = appSettings.themeMode
             ) {
-                MusicScreen(musicViewModel)
+                RgbBorderAnimationHost(enabled = appSettings.rgbModeEnabled) {
+                    MusicScreen(musicViewModel)
+                }
             }
         }
     }
@@ -251,9 +205,6 @@ fun MusicScreen(musicViewModel: MusicViewModel) {
                 is ExportTarget.SinglePlaylist -> {
                     musicViewModel.exportPlaylistToFile(target.playlist, outputStream)
                 }
-                is ExportTarget.SinglePlaylist -> {
-                    musicViewModel.exportPlaylistToFile(target.playlist, outputStream)
-                }
             }
         }
     }
@@ -269,11 +220,7 @@ fun MusicScreen(musicViewModel: MusicViewModel) {
     }
 
     LaunchedEffect(Unit) {
-        musicViewModel.operationEvent.collect { event ->
-            val message = when (event) {
-                is MusicViewModel.OperationMessage.Success -> event.message
-                is MusicViewModel.OperationMessage.Error -> event.message
-            }
+        playerViewModel.userFeedback.collect { message ->
             Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
         }
     }
@@ -519,30 +466,27 @@ fun MusicScreen(musicViewModel: MusicViewModel) {
 
     fun toggleSongFavorite(song: Song) {
         val isFav = song.id in favoriteIds
-        val onlineMatch = favoriteOnlineSongs.find { 
-            (it.id.hashCode().toLong() and 0x7FFFFFFFFFFFFFFFL).coerceAtLeast(1L) == song.id || it.title.equals(song.title, ignoreCase = true) 
-        } ?: playbackHistory.mapNotNull { entry ->
-            entry.onlineSongJson?.let { runCatching { Gson().fromJson(it, OnlineSong::class.java) }.getOrNull() }
-        }.find {
-            (it.id.hashCode().toLong() and 0x7FFFFFFFFFFFFFFFL).coerceAtLeast(1L) == song.id || it.title.equals(song.title, ignoreCase = true)
-        } ?: playlists.flatMap { it.onlineSongs }.find {
-            (it.id.hashCode().toLong() and 0x7FFFFFFFFFFFFFFFL).coerceAtLeast(1L) == song.id || it.title.equals(song.title, ignoreCase = true)
-        } ?: (onlinePlaybackState.currentSong ?: activeOnlineSong)?.takeIf {
-            (it.id.hashCode().toLong() and 0x7FFFFFFFFFFFFFFFL).coerceAtLeast(1L) == song.id || it.title.equals(song.title, ignoreCase = true)
-        } ?: if (song.album == "Online Stream" || song.filePath.isNullOrBlank() || !File(song.filePath).exists()) {
-            OnlineSong(
-                id = song.id.toString(),
-                title = song.title,
-                artist = song.artist,
-                album = song.album,
-                artworkUrl = song.artworkUri ?: "",
-                durationSeconds = song.duration / 1000L,
-                source = AudioSource.YOUTUBE,
-                streamUrl = "",
-                bitrate = "320 kbps",
-                format = "AAC/MP4"
-            )
-        } else null
+        val onlineCandidates = favoriteOnlineSongs +
+            playbackHistory.mapNotNull { entry ->
+                entry.onlineSongJson?.let { runCatching { Gson().fromJson(it, OnlineSong::class.java) }.getOrNull() }
+            } +
+            playlists.flatMap { it.onlineSongs } +
+            listOfNotNull(onlinePlaybackState.currentSong ?: activeOnlineSong)
+        val onlineMatch = SongIdentityMatcher.findOnlineMatch(song, onlineCandidates)
+            ?: if (song.album == "Online Stream" || song.filePath.isNullOrBlank() || !File(song.filePath).exists()) {
+                OnlineSong(
+                    id = song.id.toString(),
+                    title = song.title,
+                    artist = song.artist,
+                    album = song.album,
+                    artworkUrl = song.artworkUri ?: "",
+                    durationSeconds = song.duration / 1000L,
+                    source = AudioSource.YOUTUBE,
+                    streamUrl = "",
+                    bitrate = "320 kbps",
+                    format = "AAC/MP4"
+                )
+            } else null
 
         musicViewModel.toggleFavorite(song.id, !isFav, onlineMatch)
     }
@@ -558,11 +502,12 @@ fun MusicScreen(musicViewModel: MusicViewModel) {
         showPlayer = true
     }
 
-    fun playOnlineSong(onlineSong: OnlineSong, queue: List<OnlineSong>) {
+    fun playOnlineSong(onlineSong: OnlineSong, queue: List<OnlineSong>, playlistId: Long? = null) {
         LastPlayedStore.saveOnline(context, onlineSong, 0L, queue)
         musicViewModel.recordOnlinePlayback(onlineSong)
         isOnlinePlaybackActive = true
         activeOnlineSong = onlineSong
+        playerViewModel.currentPlaylistId = playlistId
         playerViewModel.pause()
         onlinePlaybackManager.playSong(onlineSong, queue)
         playerViewModel.startOnlinePlayback(
@@ -656,6 +601,15 @@ fun MusicScreen(musicViewModel: MusicViewModel) {
                 .background(MaterialTheme.colorScheme.background)
                 .nestedScroll(bottomBarScrollConnection)
         ) {
+            val currentOnlineMiniSong = onlinePlaybackState.currentSong ?: activeOnlineSong
+            val onlineAsSong = remember(currentOnlineMiniSong, onlinePlaybackState.durationMs) {
+                currentOnlineMiniSong?.toSong()?.let { base ->
+                    if (onlinePlaybackState.durationMs > 0) base.copy(duration = onlinePlaybackState.durationMs) else base
+                }
+            }
+            val localMiniSong = playerViewModel.currentSong
+            val hasMiniSong = (isOnlinePlaybackActive && onlineAsSong != null) || (!isOnlinePlaybackActive && localMiniSong != null)
+
             Box(modifier = Modifier.fillMaxSize()) {
                 Box(modifier = Modifier.fillMaxSize()) {
                     // Base Tab Screen destination: stays active on back-stack
@@ -674,6 +628,7 @@ fun MusicScreen(musicViewModel: MusicViewModel) {
                             },
                             onFavoriteToggle = { song -> toggleSongFavorite(song) },
                             onAddToPlaylist = { songToAddToPlaylist = it },
+                            onPlayNext = { playerViewModel.playNext(it) },
                             onAddToQueue = { playerViewModel.addToQueue(it) },
                             onOnlineSongSelected = { onlineSong, queue ->
                                 playOnlineSong(onlineSong, queue)
@@ -688,6 +643,7 @@ fun MusicScreen(musicViewModel: MusicViewModel) {
                             onRemoveSavedOnlineArtist = { musicViewModel.removeOnlineArtistFromLibrary(it) },
                             onSaveOnlineAlbum = { musicViewModel.saveOnlineAlbumToLibrary(it) },
                             onRemoveSavedOnlineAlbum = { musicViewModel.removeOnlineAlbumFromLibrary(it) },
+                            appSettings = appSettings,
                             homeResetKey = homeReselectKey
                         )
                         AppTab.Online -> OnlineScreen(
@@ -702,7 +658,12 @@ fun MusicScreen(musicViewModel: MusicViewModel) {
                             savedOnlineAlbums = savedOnlineAlbums,
                             onSaveOnlineAlbum = { musicViewModel.saveOnlineAlbumToLibrary(it) },
                             onRemoveSavedOnlineAlbum = { musicViewModel.removeOnlineAlbumFromLibrary(it) },
-                            onAddOnlineSongToPlaylist = { onlineSongToAddToPlaylist = it }
+                            onAddOnlineSongToPlaylist = { onlineSongToAddToPlaylist = it },
+                            onPlayNext = { playerViewModel.playNext(it) },
+                            onAddToQueue = { playerViewModel.addToQueue(it) },
+                            onPlayNextCollection = { playerViewModel.playNextOnline(it) },
+                            onAddCollectionToQueue = { playerViewModel.addToQueueOnline(it) },
+                            appSettings = appSettings
                         )
                         AppTab.Library -> LibraryScreen(
                             selectedTab = selectedLibraryTab,
@@ -715,44 +676,25 @@ fun MusicScreen(musicViewModel: MusicViewModel) {
                             query = libraryQuery,
                             currentSongId = playerViewModel.currentSong?.id,
                             playlistGridColumns = appSettings.playlistGridColumns,
+                            appSettings = appSettings,
                             onQueryChange = { libraryQuery = it },
                             onRefresh = { musicViewModel.loadSongs(forceRefresh = true) },
                             onFavoriteToggle = { song -> toggleSongFavorite(song) },
-                            onSongSelected = { song, queue -> 
-                                val onlineMatch = favoriteOnlineSongs.find { 
-                                    (it.id.hashCode().toLong() and 0x7FFFFFFFFFFFFFFFL).coerceAtLeast(1L) == song.id || it.title == song.title 
-                                } ?: playbackHistory.mapNotNull { entry ->
-                                    entry.onlineSongJson?.let { runCatching { Gson().fromJson(it, OnlineSong::class.java) }.getOrNull() }
-                                }.find {
-                                    (it.id.hashCode().toLong() and 0x7FFFFFFFFFFFFFFFL).coerceAtLeast(1L) == song.id || it.title == song.title
-                                } ?: playlists.flatMap { it.onlineSongs }.find {
-                                    (it.id.hashCode().toLong() and 0x7FFFFFFFFFFFFFFFL).coerceAtLeast(1L) == song.id || it.title == song.title
-                                }
-
-                                if (onlineMatch != null) {
-                                    val onlineQueue = queue.map { qSong ->
-                                        favoriteOnlineSongs.find { 
-                                            (it.id.hashCode().toLong() and 0x7FFFFFFFFFFFFFFFL).coerceAtLeast(1L) == qSong.id || it.title == qSong.title 
-                                        } ?: playbackHistory.mapNotNull { entry ->
-                                            entry.onlineSongJson?.let { runCatching { Gson().fromJson(it, OnlineSong::class.java) }.getOrNull() }
-                                        }.find {
-                                            (it.id.hashCode().toLong() and 0x7FFFFFFFFFFFFFFFL).coerceAtLeast(1L) == qSong.id || it.title == qSong.title
-                                        } ?: playlists.flatMap { it.onlineSongs }.find {
-                                            (it.id.hashCode().toLong() and 0x7FFFFFFFFFFFFFFFL).coerceAtLeast(1L) == qSong.id || it.title == qSong.title
-                                        } ?: OnlineSong(
-                                            id = qSong.id.toString(),
-                                            title = qSong.title,
-                                            artist = qSong.artist,
-                                            album = qSong.album,
-                                            artworkUrl = qSong.artworkUri ?: "",
-                                            durationSeconds = qSong.duration / 1000L,
-                                            source = AudioSource.YOUTUBE,
-                                            streamUrl = "",
-                                            bitrate = "320 kbps",
-                                            format = "AAC/MP4"
-                                        )
+                            onSongSelected = { song, queue ->
+                                // Resolve online tracks by stable ID first, then by title + artist.
+                                // Title-only matching can select the wrong version/remix.
+                                val historyOnlineSongs = playbackHistory.mapNotNull { entry ->
+                                    entry.onlineSongJson?.let {
+                                        runCatching { Gson().fromJson(it, OnlineSong::class.java) }.getOrNull()
                                     }
-                                    playOnlineSong(onlineMatch, onlineQueue)
+                                }
+                                val onlineCandidates = favoriteOnlineSongs +
+                                    historyOnlineSongs +
+                                    playlists.flatMap { it.onlineSongs }
+
+                                val resolution = OnlineSongQueueResolver.resolve(song, queue, onlineCandidates)
+                                if (resolution != null) {
+                                    playOnlineSong(resolution.selectedSong, resolution.songs)
                                 } else {
                                     playSong(song, queue)
                                 }
@@ -780,7 +722,15 @@ fun MusicScreen(musicViewModel: MusicViewModel) {
                             savedOnlineAlbums = savedOnlineAlbums,
                             onSaveOnlineAlbum = { musicViewModel.saveOnlineAlbumToLibrary(it) },
                             onRemoveSavedOnlineAlbum = { musicViewModel.removeOnlineAlbumFromLibrary(it) },
-                            onAddOnlineSongToPlaylist = { onlineSongToAddToPlaylist = it }
+                            onAddOnlineSongToPlaylist = { onlineSongToAddToPlaylist = it },
+                            onPlayNext = { playerViewModel.playNext(it) },
+                            onAddToQueue = { playerViewModel.addToQueue(it) },
+                            onOnlinePlayNext = { playerViewModel.playNext(it) },
+                            onOnlineAddToQueue = { playerViewModel.addToQueue(it) },
+                            onPlayNextSongs = { playerViewModel.playNext(it) },
+                            onAddSongsToQueue = { playerViewModel.addToQueue(it) },
+                            onPlayNextOnlineSongs = { playerViewModel.playNextOnline(it) },
+                            onAddOnlineSongsToQueue = { playerViewModel.addToQueueOnline(it) }
                         )
                         AppTab.Search -> SearchScreen(
                             songs = songs,
@@ -793,6 +743,7 @@ fun MusicScreen(musicViewModel: MusicViewModel) {
                             onSongSelected = { song, queue -> playSong(song, queue) },
                             onFavoriteToggle = { song -> toggleSongFavorite(song) },
                             onAddToPlaylist = { songToAddToPlaylist = it },
+                            onPlayNext = { playerViewModel.playNext(it) },
                             onAddToQueue = { playerViewModel.addToQueue(it) },
                             onAlbumSelected = { selectedAlbumName = it },
                             onArtistSelected = { selectedArtistName = it },
@@ -800,39 +751,63 @@ fun MusicScreen(musicViewModel: MusicViewModel) {
                             onOnlineSongSelected = { onlineSong, queue ->
                                 playOnlineSong(onlineSong, queue)
                             },
-                            onAddOnlineSongToPlaylist = { onlineSongToAddToPlaylist = it }
+                            onOnlinePlayNext = { playerViewModel.playNext(it) },
+                            onOnlineAddToQueue = { playerViewModel.addToQueue(it) },
+                            onAddOnlineSongToPlaylist = { onlineSongToAddToPlaylist = it },
+                            appSettings = appSettings
                         )
                     }
 
                     // Detail Screens overlay
                     when {
                         showSettings -> {
-                            SettingsScreen(
-                                songCount = songs.size,
-                                albumCount = songs.distinctBy { it.album }.size,
-                                artistCount = songs.distinctBy { it.artist }.size,
-                                username = username,
-                                appSettings = appSettings,
-                                onUsernameChange = { musicViewModel.updateUsername(it) },
-                                onThemeModeChange = { mode -> musicViewModel.setThemeMode(mode) },
-                                onDynamicArtworkColorsChange = { musicViewModel.setDynamicArtworkColors(it) },
-                                onKaraokeChange = { musicViewModel.setKaraokeMode(it) },
-                                onLyricFontScaleChange = { musicViewModel.setLyricFontScale(it) },
-                                onSmartAudioFocusChange = { musicViewModel.setSmartAudioFocus(it) },
-                                onKeepPlayingOnCloseChange = { musicViewModel.setKeepPlayingOnClose(it) },
-                                onPlaylistGridColumnsChange = { musicViewModel.setPlaylistGridColumns(it) },
-                                onImportPlaylistFile = {
-                                    importFileLauncher.launch(arrayOf("application/json", "application/octet-stream", "*/*"))
-                                },
-                                onExportAllSongs = {
-                                    pendingExportTarget = ExportTarget.AllSongs
-                                    exportFileLauncher.launch("AuraMusic_AllSongs.json")
-                                },
-                                onExportPlaylist = { showExportPlaylistDialog = true },
-                                onRefresh = { musicViewModel.loadSongs(forceRefresh = true) },
-                                onBack = { showSettings = false },
-                                onShowAbout = { showAboutDialog = true }
-                            )
+                            AppThemedScreen(
+                                area = AppArea.HOME,
+                                artworkModel = if (isOnlinePlaybackActive) onlineAsSong else localMiniSong,
+                                appSettings = appSettings
+                            ) {
+                                SettingsScreen(
+                                    songCount = songs.size,
+                                    albumCount = songs.distinctBy { it.album }.size,
+                                    artistCount = songs.distinctBy { it.artist }.size,
+                                    username = username,
+                                    appSettings = appSettings,
+                                    onUsernameChange = { musicViewModel.updateUsername(it) },
+                                    onThemeModeChange = { mode -> musicViewModel.setThemeMode(mode) },
+                                    onChangeThemeEnabled = { musicViewModel.setChangeThemeEnabled(it) },
+                                    onThemeScopeChange = { musicViewModel.setThemeScope(it) },
+                                    onThemeColorStyleChange = { musicViewModel.setThemeColorStyle(it) },
+                                onRgbModeChange = { musicViewModel.setRgbModeEnabled(it) },
+                                    onThemePresetChange = { musicViewModel.setThemePreset(it) },
+                                    onThemeCustomHexesChange = { musicViewModel.setThemeCustomHexes(it) },
+                                    onDynamicArtworkColorsChange = { musicViewModel.setDynamicArtworkColors(it) },
+                                    onPlayerThemeModeChange = { musicViewModel.setPlayerThemeMode(it) },
+                                    onColorPresetChange = { preset -> musicViewModel.setColorPreset(preset) },
+                                    onCustomPaletteHexesChange = { musicViewModel.setCustomPaletteHexes(it) },
+                                    onEnableFullAppDynamicThemeChange = { musicViewModel.setEnableFullAppDynamicTheme(it) },
+                                    onAppPaletteModeChange = { musicViewModel.setAppPaletteMode(it) },
+                                    onAppColorPresetChange = { musicViewModel.setAppColorPreset(it) },
+                                    onAppCustomPaletteHexesChange = { musicViewModel.setAppCustomPaletteHexes(it) },
+                                    onThemeAreaChange = { area, enabled -> musicViewModel.setThemeAreaEnabled(area, enabled) },
+                                    onKaraokeChange = { musicViewModel.setKaraokeMode(it) },
+                                    onLockscreenLyricsChange = { musicViewModel.setLockscreenLyricsEnabled(it) },
+                                    onLyricFontScaleChange = { musicViewModel.setLyricFontScale(it) },
+                                    onLyricBlurStrengthChange = { musicViewModel.setLyricBlurStrength(it) },
+                                    onSmartAudioFocusChange = { musicViewModel.setSmartAudioFocus(it) },
+                                    onPlaylistGridColumnsChange = { musicViewModel.setPlaylistGridColumns(it) },
+                                    onImportPlaylistFile = {
+                                        importFileLauncher.launch(arrayOf("application/json", "application/octet-stream", "*/*"))
+                                    },
+                                    onExportAllSongs = {
+                                        pendingExportTarget = ExportTarget.AllSongs
+                                        exportFileLauncher.launch("AuraMusic_AllSongs.json")
+                                    },
+                                    onExportPlaylist = { showExportPlaylistDialog = true },
+                                    onRefresh = { musicViewModel.loadSongs(forceRefresh = true) },
+                                    onBack = { showSettings = false },
+                                    onShowAbout = { showAboutDialog = true }
+                                )
+                            }
                         }
                         selectedPlaylistId != null -> {
                             val playlist = playlists.find { it.id == selectedPlaylistId }
@@ -846,21 +821,19 @@ fun MusicScreen(musicViewModel: MusicViewModel) {
                                     songs = playlistSongs,
                                     favoriteIds = favoriteIds,
                                     currentSongId = playerViewModel.currentSong?.id,
+                                    appArea = AppArea.PLAYLIST_DETAIL,
+                                    appSettings = appSettings,
                                     onBack = { selectedPlaylistId = null },
                                     onSongSelected = { song ->
-                                        val onlineMatch = p.onlineSongs.find { 
-                                            (it.id.hashCode().toLong() and 0x7FFFFFFFFFFFFFFFL).coerceAtLeast(1L) == song.id || it.title == song.title 
-                                        }
+                                        val onlineMatch = com.aman.auramusic.util.SongIdentityMatcher.findOnlineMatch(song, p.onlineSongs)
                                         if (onlineMatch != null) {
-                                            playOnlineSong(onlineMatch, p.onlineSongs)
+                                            playOnlineSong(onlineMatch, p.onlineSongs, p.id)
                                         } else {
                                             playSong(song, localPlaylistSongs, p.id)
                                         }
                                     },
                                     onRemoveSong = { song -> 
-                                        val onlineMatch = p.onlineSongs.find { 
-                                            (it.id.hashCode().toLong() and 0x7FFFFFFFFFFFFFFFL).coerceAtLeast(1L) == song.id || it.title == song.title 
-                                        }
+                                        val onlineMatch = com.aman.auramusic.util.SongIdentityMatcher.findOnlineMatch(song, p.onlineSongs)
                                         if (onlineMatch != null) {
                                             musicViewModel.removeOnlineSongFromPlaylist(p.id, onlineMatch.id)
                                         } else {
@@ -874,20 +847,15 @@ fun MusicScreen(musicViewModel: MusicViewModel) {
                                     onRenamePlaylist = { playlistToRename = p },
                                     onToggleFavorite = { song -> toggleSongFavorite(song) },
                                     onAddToPlaylist = { songToAddToPlaylist = it },
+                                    onPlayNext = { playerViewModel.playNext(it) },
                                     onAddToQueue = { playerViewModel.addToQueue(it) },
+                                    onPlayNextCollection = { playerViewModel.playNext(playlistSongs) },
                                     onAddCollectionToQueue = { playerViewModel.addToQueue(playlistSongs) },
                                     onAddCollectionToPlaylist = { songsToAddToPlaylist = playlistSongs },
                                     onFavoriteCollection = {
                                         val items = playlistSongs.map { song ->
-                                            val match = p.onlineSongs.find {
-                                                (it.id.hashCode().toLong() and 0x7FFFFFFFFFFFFFFFL).coerceAtLeast(1L) == song.id ||
-                                                it.id == song.id.toString() ||
-                                                it.title.equals(song.title, ignoreCase = true)
-                                            } ?: favoriteOnlineSongs.find {
-                                                (it.id.hashCode().toLong() and 0x7FFFFFFFFFFFFFFFL).coerceAtLeast(1L) == song.id ||
-                                                it.id == song.id.toString() ||
-                                                it.title.equals(song.title, ignoreCase = true)
-                                            }
+                                            val match = SongIdentityMatcher.findOnlineMatch(song, p.onlineSongs)
+                                                ?: SongIdentityMatcher.findOnlineMatch(song, favoriteOnlineSongs)
                                             song.id to match
                                         }
                                         musicViewModel.toggleFavorites(items, true)
@@ -919,7 +887,13 @@ fun MusicScreen(musicViewModel: MusicViewModel) {
                                     isAlbumLoading = true
                                     try {
                                         val repo = OnlineMusicRepository()
-                                        onlineAlbumSongs = repo.search(selectedAlbumName!!, AudioSource.ALL)
+                                        val rawResults = repo.search(selectedAlbumName!!, AudioSource.ALL)
+                                        val filtered = com.aman.auramusic.util.SongIdentityMatcher.filterAlbumTracks(
+                                            targetAlbumName = selectedAlbumName!!,
+                                            targetArtistName = localAlbumSongs.firstOrNull()?.artist,
+                                            rawTracks = rawResults
+                                        )
+                                        onlineAlbumSongs = if (filtered.isNotEmpty()) filtered else rawResults
                                     } catch (_: Exception) {
                                         onlineAlbumSongs = emptyList()
                                     } finally {
@@ -939,13 +913,11 @@ fun MusicScreen(musicViewModel: MusicViewModel) {
                                 songs = displaySongs,
                                 favoriteIds = favoriteIds,
                                 currentSongId = playerViewModel.currentSong?.id,
+                                appArea = AppArea.ALBUM_DETAIL,
+                                appSettings = appSettings,
                                 onBack = { selectedAlbumName = null },
                                 onSongSelected = { song ->
-                                    val onlineMatch = onlineAlbumSongs.find {
-                                        (it.id.hashCode().toLong() and 0x7FFFFFFFFFFFFFFFL).coerceAtLeast(1L) == song.id ||
-                                        it.id == song.id.toString() ||
-                                        it.title.equals(song.title, ignoreCase = true)
-                                    }
+                                    val onlineMatch = com.aman.auramusic.util.SongIdentityMatcher.findOnlineMatch(song, onlineAlbumSongs)
                                     if (onlineMatch != null) {
                                         playOnlineSong(onlineMatch, onlineAlbumSongs)
                                     } else {
@@ -954,19 +926,20 @@ fun MusicScreen(musicViewModel: MusicViewModel) {
                                 },
                                 onToggleFavorite = { song ->
                                     val isFav = song.id in favoriteIds
-                                    val onlineMatch = onlineAlbumSongs.find {
-                                        (it.id.hashCode().toLong() and 0x7FFFFFFFFFFFFFFFL).coerceAtLeast(1L) == song.id ||
-                                        it.id == song.id.toString() ||
-                                        it.title.equals(song.title, ignoreCase = true)
-                                    } ?: favoriteOnlineSongs.find {
-                                        (it.id.hashCode().toLong() and 0x7FFFFFFFFFFFFFFFL).coerceAtLeast(1L) == song.id ||
-                                        it.id == song.id.toString() ||
-                                        it.title.equals(song.title, ignoreCase = true)
-                                    }
+                                    val onlineMatch = com.aman.auramusic.util.SongIdentityMatcher.findOnlineMatch(song, onlineAlbumSongs)
+                                        ?: com.aman.auramusic.util.SongIdentityMatcher.findOnlineMatch(song, favoriteOnlineSongs)
                                     musicViewModel.toggleFavorite(song.id, !isFav, onlineMatch)
                                 },
                                 onAddToPlaylist = { songToAddToPlaylist = it },
+                                onPlayNext = { playerViewModel.playNext(it) },
                                 onAddToQueue = { playerViewModel.addToQueue(it) },
+                                onPlayNextCollection = {
+                                    if (localAlbumSongs.isNotEmpty()) {
+                                        playerViewModel.playNext(localAlbumSongs)
+                                    } else {
+                                        playerViewModel.playNext(displaySongs)
+                                    }
+                                },
                                 onAddCollectionToQueue = {
                                     if (localAlbumSongs.isNotEmpty()) {
                                         playerViewModel.addToQueue(localAlbumSongs)
@@ -977,15 +950,8 @@ fun MusicScreen(musicViewModel: MusicViewModel) {
                                 onAddCollectionToPlaylist = { songsToAddToPlaylist = displaySongs },
                                 onFavoriteCollection = {
                                     val items = displaySongs.map { song ->
-                                        val match = onlineAlbumSongs.find {
-                                            (it.id.hashCode().toLong() and 0x7FFFFFFFFFFFFFFFL).coerceAtLeast(1L) == song.id ||
-                                            it.id == song.id.toString() ||
-                                            it.title.equals(song.title, ignoreCase = true)
-                                        } ?: favoriteOnlineSongs.find {
-                                            (it.id.hashCode().toLong() and 0x7FFFFFFFFFFFFFFFL).coerceAtLeast(1L) == song.id ||
-                                            it.id == song.id.toString() ||
-                                            it.title.equals(song.title, ignoreCase = true)
-                                        }
+                                        val match = SongIdentityMatcher.findOnlineMatch(song, onlineAlbumSongs)
+                                            ?: SongIdentityMatcher.findOnlineMatch(song, favoriteOnlineSongs)
                                         song.id to match
                                     }
                                     musicViewModel.toggleFavorites(items, true)
@@ -1101,6 +1067,7 @@ fun MusicScreen(musicViewModel: MusicViewModel) {
                                 errorMessage = artistDetailErrorMessage,
                                 isSavedInLibrary = isArtistSaved,
                                 audienceText = audience,
+                                appSettings = appSettings,
                                 onToggleSaveToLibrary = {
                                     if (isArtistSaved) {
                                         savedArtistEntry?.let { musicViewModel.removeOnlineArtistFromLibrary(it.id) }
@@ -1157,14 +1124,6 @@ fun MusicScreen(musicViewModel: MusicViewModel) {
                             .padding(top = if (isBottomCollapsed) 2.dp else 10.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        val currentOnlineMiniSong = onlinePlaybackState.currentSong ?: activeOnlineSong
-                        val onlineAsSong = remember(currentOnlineMiniSong, onlinePlaybackState.durationMs) {
-                            currentOnlineMiniSong?.toSong()?.let { base ->
-                                if (onlinePlaybackState.durationMs > 0) base.copy(duration = onlinePlaybackState.durationMs) else base
-                            }
-                        }
-                        val localMiniSong = playerViewModel.currentSong
-                        val hasMiniSong = (isOnlinePlaybackActive && onlineAsSong != null) || (!isOnlinePlaybackActive && localMiniSong != null)
 
                         AnimatedContent(
                             targetState = isBottomCollapsed && hasMiniSong,
@@ -1187,6 +1146,9 @@ fun MusicScreen(musicViewModel: MusicViewModel) {
                                 BottomNavBar(
                                     selectedTab = selectedTab,
                                     compact = true,
+                                    isPlaying = if (isOnlinePlaybackActive) onlinePlaybackState.isPlaying else playerViewModel.isPlaying,
+                                    song = if (isOnlinePlaybackActive) onlineAsSong else localMiniSong,
+                                    appSettings = appSettings,
                                     compactPlayer = {
                                         if (isOnlinePlaybackActive && onlineAsSong != null) {
                                             MiniPlayer(
@@ -1198,7 +1160,8 @@ fun MusicScreen(musicViewModel: MusicViewModel) {
                                                 onNext = { onlinePlaybackManager.playNext() },
                                                 onPrevious = { onlinePlaybackManager.playPrevious() },
                                                 onOpen = { showPlayer = true },
-                                                compact = true
+                                                compact = true,
+                                                appSettings = appSettings,
                                             )
                                         } else {
                                             localMiniSong?.let { song ->
@@ -1211,7 +1174,8 @@ fun MusicScreen(musicViewModel: MusicViewModel) {
                                                     onNext = { playerViewModel.playNext() },
                                                     onPrevious = { playerViewModel.playPrevious() },
                                                     onOpen = { showPlayer = true },
-                                                    compact = true
+                                                    compact = true,
+                                                    appSettings = appSettings,
                                                 )
                                             }
                                         }
@@ -1240,7 +1204,8 @@ fun MusicScreen(musicViewModel: MusicViewModel) {
                                             onPlayPause = { onlinePlaybackManager.togglePlayPause() },
                                             onNext = { onlinePlaybackManager.playNext() },
                                             onPrevious = { onlinePlaybackManager.playPrevious() },
-                                            onOpen = { showPlayer = true }
+                                            onOpen = { showPlayer = true },
+                                            appSettings = appSettings,
                                         )
                                     } else {
                                         localMiniSong?.let { song ->
@@ -1252,7 +1217,8 @@ fun MusicScreen(musicViewModel: MusicViewModel) {
                                                 onPlayPause = { playerViewModel.togglePlayPause() },
                                                 onNext = { playerViewModel.playNext() },
                                                 onPrevious = { playerViewModel.playPrevious() },
-                                                onOpen = { showPlayer = true }
+                                                onOpen = { showPlayer = true },
+                                                appSettings = appSettings,
                                             )
                                         }
                                     }
@@ -1260,6 +1226,9 @@ fun MusicScreen(musicViewModel: MusicViewModel) {
                                     BottomNavBar(
                                         selectedTab = selectedTab,
                                         compact = false,
+                                        isPlaying = if (isOnlinePlaybackActive) onlinePlaybackState.isPlaying else playerViewModel.isPlaying,
+                                        song = if (isOnlinePlaybackActive) onlineAsSong else localMiniSong,
+                                        appSettings = appSettings,
                                         onTabSelected = {
                                             if (it == AppTab.Home && selectedTab == AppTab.Home) homeReselectKey++
                                             selectedTab = it
@@ -1341,10 +1310,10 @@ fun MusicScreen(musicViewModel: MusicViewModel) {
                         val isFav = onlineAsSong.id in favoriteIds
                         musicViewModel.toggleFavorite(onlineAsSong.id, !isFav, currentOnlineFullSong)
                     },
-                    isShuffled = onlinePlaybackState.isShuffleEnabled,
-                    repeatMode = if (onlinePlaybackState.isRepeatEnabled) RepeatMode.ONE else RepeatMode.NONE,
-                    onToggleShuffle = { onlinePlaybackManager.toggleShuffle() },
-                    onToggleRepeat = { onlinePlaybackManager.toggleRepeat() },
+                    isShuffled = playerViewModel.isShuffled,
+                    repeatMode = playerViewModel.repeatMode,
+                    onToggleShuffle = { playerViewModel.toggleShuffle() },
+                    onToggleRepeat = { playerViewModel.toggleRepeat() },
                     onAddToQueue = { selected ->
                         val target = onlinePlaybackState.queue.find { os ->
                             (os.id.hashCode().toLong() and 0x7FFFFFFFFFFFFFFFL).coerceAtLeast(1L) == selected.id || os.title == selected.title
@@ -1398,6 +1367,8 @@ fun MusicScreen(musicViewModel: MusicViewModel) {
                         },
                         onHistoryClear = { musicViewModel.clearHistory() },
                         onAddToPlaylist = { songToAddToPlaylist = song },
+                        onAddToQueue = { playerViewModel.addToQueue(it) },
+                        onMoveQueueItem = { from, to -> playerViewModel.moveQueueItem(from, to) },
                         appSettings = appSettings,
                         playerViewModel = playerViewModel
                     )

@@ -79,6 +79,9 @@ import com.aman.auramusic.ui.component.SectionHeader
 import com.aman.auramusic.ui.theme.AuraScreenBackground
 import com.aman.auramusic.ui.theme.AuraShapes
 import com.aman.auramusic.ui.theme.LocalIsDark
+import com.aman.auramusic.data.model.AppSettings
+import com.aman.auramusic.ui.theme.AppArea
+import com.aman.auramusic.ui.theme.AppThemedScreen
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -87,6 +90,8 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 
 private data class MoodCollection(
     val title: String,
@@ -232,6 +237,11 @@ fun OnlineScreen(
     onSaveOnlineAlbum: ((OnlinePlaylist) -> Unit)? = null,
     onRemoveSavedOnlineAlbum: ((String) -> Unit)? = null,
     onAddOnlineSongToPlaylist: ((OnlineSong) -> Unit)? = null,
+    onPlayNext: ((OnlineSong) -> Unit)? = null,
+    onAddToQueue: ((OnlineSong) -> Unit)? = null,
+    onPlayNextCollection: ((List<OnlineSong>) -> Unit)? = null,
+    onAddCollectionToQueue: ((List<OnlineSong>) -> Unit)? = null,
+    appSettings: AppSettings = AppSettings(),
     modifier: Modifier = Modifier
 ) {
     val scope = rememberCoroutineScope()
@@ -259,7 +269,9 @@ fun OnlineScreen(
         selectedCollection = null
     }
 
-    suspend fun loadMovieSoundtracks(): List<AlbumCollection> = coroutineScope {
+    suspend fun loadMovieSoundtracks(forceRefresh: Boolean = false): List<AlbumCollection> = coroutineScope {
+        // Keep provider requests bounded to avoid a burst of simultaneous network calls.
+        val requestPermits = Semaphore(permits = 3)
         // Search real YouTube Music album/playlist entities and browse each collection
         // by its provider browse ID. Do not infer albums from song-search metadata.
         val queries = listOf(
@@ -273,7 +285,9 @@ fun OnlineScreen(
         val collectionResults = queries.map { query ->
             async {
                 try {
-                    repository.searchYouTubeMusicCollections(query, limit = 10)
+                    requestPermits.withPermit {
+                        repository.searchYouTubeMusicCollections(query, limit = 10)
+                    }
                 } catch (cancelled: CancellationException) {
                     throw cancelled
                 } catch (_: Exception) {
@@ -295,12 +309,40 @@ fun OnlineScreen(
 
         val collections = candidates.map { collection ->
             async {
-                val tracks = try {
-                    repository.getYouTubeMusicCollectionSongs(collection)
-                } catch (cancelled: CancellationException) {
-                    throw cancelled
-                } catch (_: Exception) {
+                val cacheKey = "collection_tracks_${collection.id.hashCode()}"
+                val cachedAtKey = "${cacheKey}_fetched_at"
+                val cachedAt = feedCachePrefs.getLong(cachedAtKey, 0L)
+                val cachedTracks = if (!forceRefresh &&
+                    System.currentTimeMillis() - cachedAt in 0..feedCacheTtlMs
+                ) {
+                    runCatching {
+                        val songsType = object : TypeToken<List<OnlineSong>>() {}.type
+                        feedCacheGson.fromJson<List<OnlineSong>>(
+                            feedCachePrefs.getString(cacheKey, null), songsType
+                        ).orEmpty()
+                    }.getOrDefault(emptyList())
+                } else {
                     emptyList()
+                }
+                val tracks = if (cachedTracks.isNotEmpty()) {
+                    cachedTracks
+                } else {
+                    try {
+                        requestPermits.withPermit {
+                            repository.getYouTubeMusicCollectionSongs(collection)
+                        }.also { fetched ->
+                            if (fetched.isNotEmpty()) {
+                                feedCachePrefs.edit()
+                                    .putString(cacheKey, feedCacheGson.toJson(fetched))
+                                    .putLong(cachedAtKey, System.currentTimeMillis())
+                                    .apply()
+                            }
+                        }
+                    } catch (cancelled: CancellationException) {
+                        throw cancelled
+                    } catch (_: Exception) {
+                        emptyList()
+                    }
                 }
                 val uniqueTracks = deduplicateOnlineSongs(tracks)
                     .filter { it.source == AudioSource.YOUTUBE }
@@ -384,7 +426,7 @@ fun OnlineScreen(
                 emptyList()
             }
             movieAlbums = try {
-                loadMovieSoundtracks()
+                loadMovieSoundtracks(forceRefresh)
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (_: Exception) {
@@ -518,7 +560,18 @@ fun OnlineScreen(
     val textColor = MaterialTheme.colorScheme.onBackground
     val mutedText = MaterialTheme.colorScheme.onSurfaceVariant
 
-    AuraScreenBackground(modifier = modifier) {
+    val exploreArtwork = remember(movieAlbums, feedSongs, movieSongs) {
+        movieAlbums.firstOrNull()?.artworkUrl?.takeIf { it.isNotBlank() }
+            ?: feedSongs.firstOrNull { it.artworkUrl.isNotBlank() }?.artworkUrl
+            ?: movieSongs.firstOrNull { it.artworkUrl.isNotBlank() }?.artworkUrl
+    }
+
+    AppThemedScreen(
+        area = AppArea.EXPLORE,
+        artworkModel = exploreArtwork,
+        appSettings = appSettings
+    ) {
+        AuraScreenBackground(modifier = modifier) {
         val isDark = LocalIsDark.current
         val listState = rememberLazyListState()
         val statusBarHeight = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
@@ -796,12 +849,18 @@ fun OnlineScreen(
                     onBack = { selectedCollection = null },
                     onSongSelected = onOnlineSongSelected,
                     onAddOnlineSongToPlaylist = onAddOnlineSongToPlaylist,
+                    onPlayNext = onPlayNext,
+                    onAddToQueue = onAddToQueue,
+                    onPlayNextCollection = onPlayNextCollection,
+                    onAddCollectionToQueue = onAddCollectionToQueue,
                     showMenuButton = false,
+                    appSettings = appSettings,
                     modifier = Modifier.fillMaxSize()
                 )
             }
         }
     }
+}
 }
 
 @Composable
@@ -838,35 +897,7 @@ private fun FeaturedExploreCard(
                 )
             }
 
-            // Horizontal gradient overlay for left-side text contrast
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(
-                        Brush.horizontalGradient(
-                            listOf(
-                                Color.Black.copy(alpha = 0.85f),
-                                Color.Black.copy(alpha = 0.45f),
-                                Color.Transparent
-                            )
-                        )
-                    )
-            )
-
-            // Vertical gradient overlay for bottom text and play button contrast
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(
-                        Brush.verticalGradient(
-                            listOf(
-                                Color.Transparent,
-                                Color.Black.copy(alpha = 0.35f),
-                                Color.Black.copy(alpha = 0.85f)
-                            )
-                        )
-                    )
-            )
+            // Keep the featured artwork untinted: no theme tint or dark gradient overlay.
 
             Column(
                 modifier = Modifier
@@ -876,7 +907,11 @@ private fun FeaturedExploreCard(
                 verticalArrangement = Arrangement.spacedBy(7.dp)
             ) {
                 Text(
-                    text = if (song.album.isNotBlank()) "MOVIE MUSIC SPOTLIGHT" else "FEATURED MUSIC",
+                    text = if (song.album.isNotBlank() && !song.album.equals("YouTube Music", ignoreCase = true)) {
+                        "MOVIE MUSIC SPOTLIGHT"
+                    } else {
+                        "FEATURED MUSIC"
+                    },
                     color = Color.White.copy(alpha = 0.85f),
                     fontSize = 10.sp,
                     fontWeight = FontWeight.Bold,
@@ -884,15 +919,20 @@ private fun FeaturedExploreCard(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
-                Text(
-                    text = song.album.ifBlank { song.title },
-                    color = Color.White,
-                    fontSize = 25.sp,
-                    lineHeight = 29.sp,
-                    fontWeight = FontWeight.ExtraBold,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
-                )
+                val featuredTitle = song.album
+                    .takeIf { it.isNotBlank() && !it.equals("YouTube Music", ignoreCase = true) }
+                    ?: song.title.takeIf { !it.equals("YouTube Music", ignoreCase = true) }.orEmpty()
+                if (featuredTitle.isNotBlank()) {
+                    Text(
+                        text = featuredTitle,
+                        color = Color.White,
+                        fontSize = 25.sp,
+                        lineHeight = 29.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
                 Text(
                     text = song.artist,
                     color = Color.White.copy(alpha = 0.88f),
@@ -906,12 +946,12 @@ private fun FeaturedExploreCard(
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
                     .padding(16.dp)
-                    .size(48.dp)
+                    .size(54.dp)
                     .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.primary, CircleShape)
+                    .background(Color.Transparent, CircleShape)
                     .border(
                         1.dp,
-                        MaterialTheme.colorScheme.outline,
+                        MaterialTheme.colorScheme.outline.copy(alpha = 0.82f),
                         CircleShape
                     )
                     .clickable(onClick = onClick),
@@ -920,9 +960,9 @@ private fun FeaturedExploreCard(
                 Icon(
                     imageVector = Icons.Default.PlayArrow,
                     contentDescription = "Play featured music",
-                    tint = MaterialTheme.colorScheme.onPrimary,
+                    tint = Color.White,
                     modifier = Modifier
-                        .size(26.dp)
+                        .size(30.dp)
                         .offset(x = 1.dp)
                 )
             }

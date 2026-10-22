@@ -56,6 +56,9 @@ import com.aman.auramusic.online.model.OnlineSong
 import com.aman.auramusic.ui.component.AuraArtwork
 import com.aman.auramusic.ui.component.SongArtwork
 import com.aman.auramusic.ui.theme.LocalIsDark
+import com.aman.auramusic.data.model.AppSettings
+import com.aman.auramusic.ui.theme.AppArea
+import com.aman.auramusic.ui.theme.AppThemedScreen
 
 /**
  * Editorial top bar for the Apple Music monochrome Home experience.
@@ -294,28 +297,33 @@ fun AuraPlayButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     size: Dp = 36.dp,
-    iconSize: Dp = (size.value * 0.52f).dp
+    iconSize: Dp = (size.value * 0.52f).dp,
+    glassStyle: Boolean = false
 ) {
+    val buttonBackground = if (glassStyle) {
+        Color.Transparent
+    } else {
+        MaterialTheme.colorScheme.primary
+    }
+    val buttonBorder = MaterialTheme.colorScheme.outline.copy(
+        alpha = if (glassStyle) AuraActionButtons.BorderAlpha else 1f
+    )
+    val iconTint = if (glassStyle) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onPrimary
+
     Box(
         modifier = modifier
             .size(size)
             .clip(CircleShape)
-            .background(MaterialTheme.colorScheme.primary, CircleShape)
-            .border(
-                width = 1.dp,
-                color = MaterialTheme.colorScheme.outline,
-                shape = CircleShape
-            )
+            .background(buttonBackground, CircleShape)
+            .border(width = 1.dp, color = buttonBorder, shape = CircleShape)
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
         Icon(
             imageVector = Icons.Default.PlayArrow,
             contentDescription = "Play",
-            tint = MaterialTheme.colorScheme.onPrimary,
-            modifier = Modifier
-                .size(iconSize)
-                .offset(x = 1.dp)
+            tint = iconTint,
+            modifier = Modifier.size(iconSize).offset(x = 1.dp)
         )
     }
 }
@@ -620,7 +628,9 @@ fun ArtistSquareCard(
                 .clip(CircleShape)
                 .border(
                     width = 1.dp,
-                    color = MaterialTheme.colorScheme.outlineVariant,
+                    // Use the active screen theme's border token: monochrome when
+                    // theming is disabled, artwork/preset/custom accent when enabled.
+                    color = MaterialTheme.colorScheme.outline,
                     shape = CircleShape
                 )
                 .background(MaterialTheme.colorScheme.surfaceVariant),
@@ -691,11 +701,9 @@ fun ArtistDetailSheet(
     audienceText: String? = null,
     similarArtists: List<ArtistItem> = emptyList(),
     bioData: ArtistBioData? = null,
-    onSelectSimilarArtist: ((ArtistItem) -> Unit)? = null
+    onSelectSimilarArtist: ((ArtistItem) -> Unit)? = null,
+    appSettings: AppSettings = AppSettings()
 ) {
-    val pageBackground = MaterialTheme.colorScheme.background
-    val titleColor = MaterialTheme.colorScheme.onBackground
-    val secondaryColor = MaterialTheme.colorScheme.onSurfaceVariant
     val realAlbums = remember(localSongs) {
         localSongs.filter { it.album.isNotBlank() && !it.album.equals("unknown", true) }
             .groupBy { it.album.trim() }
@@ -706,10 +714,21 @@ fun ArtistDetailSheet(
 
     androidx.activity.compose.BackHandler(onBack = onDismiss)
 
-    Surface(
-        modifier = Modifier.fillMaxSize(),
-        color = pageBackground
+    AppThemedScreen(
+        area = AppArea.ARTIST_DETAIL,
+        artworkModel = artist.artworkModel,
+        appSettings = appSettings
     ) {
+        // Read colors inside the area-specific theme so the hero gradient follows
+        // the artwork-derived palette instead of retaining the root black/white theme.
+        val pageBackground = MaterialTheme.colorScheme.background
+        val titleColor = MaterialTheme.colorScheme.onBackground
+        val secondaryColor = MaterialTheme.colorScheme.onSurfaceVariant
+
+        Surface(
+            modifier = Modifier.fillMaxSize(),
+            color = MaterialTheme.colorScheme.background
+        ) {
         Box(modifier = Modifier.fillMaxSize()) {
             LazyColumn(
                 state = listState,
@@ -756,8 +775,8 @@ fun ArtistDetailSheet(
                                 .background(
                                     Brush.verticalGradient(
                                         0f to Color.Transparent,
-                                        0.50f to Color.Transparent,
-                                        0.78f to pageBackground.copy(alpha = 0.70f),
+                                        0.75f to Color.Transparent,
+                                        0.89f to pageBackground.copy(alpha = 0.70f),
                                         1f to pageBackground
                                     )
                                 )
@@ -801,8 +820,9 @@ fun ArtistDetailSheet(
                         }
                         AuraPlayButton(
                             onClick = onPlayAll,
-                            size = 54.dp,
-                            iconSize = 28.dp
+                            size = 44.dp,
+                            iconSize = 23.dp,
+                            glassStyle = true
                         )
                     }
                 }
@@ -1278,6 +1298,7 @@ fun ArtistDetailSheet(
                 }
             }
         }
+    }
     }
 }
 

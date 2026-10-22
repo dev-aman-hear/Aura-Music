@@ -24,10 +24,23 @@ private val DarkColorScheme = darkColorScheme(
     onSurface = DarkMonochromeColors.textPrimary,
     surfaceVariant = DarkMonochromeColors.surfaceSecondary,
     onSurfaceVariant = DarkMonochromeColors.textSecondary,
+    surfaceContainerLowest = DarkMonochromeColors.background,
+    surfaceContainerLow = DarkMonochromeColors.surface,
+    surfaceContainer = DarkMonochromeColors.surface,
+    surfaceContainerHigh = DarkMonochromeColors.surfaceSecondary,
+    surfaceContainerHighest = DarkMonochromeColors.surfacePressed,
     outline = DarkMonochromeColors.border,
     outlineVariant = DarkMonochromeColors.borderStrong,
     primaryContainer = DarkMonochromeColors.surfaceSecondary,
     onPrimaryContainer = DarkMonochromeColors.textPrimary,
+    secondaryContainer = DarkMonochromeColors.surfaceSecondary,
+    onSecondaryContainer = DarkMonochromeColors.textPrimary,
+    tertiaryContainer = DarkMonochromeColors.surfaceSecondary,
+    onTertiaryContainer = DarkMonochromeColors.textPrimary,
+    inverseSurface = DarkMonochromeColors.textPrimary,
+    inverseOnSurface = DarkMonochromeColors.background,
+    inversePrimary = DarkMonochromeColors.background,
+    scrim = DarkMonochromeColors.background,
     error = DarkMonochromeColors.textPrimary,
     onError = DarkMonochromeColors.controlSelectedContent
 )
@@ -45,10 +58,23 @@ private val LightColorScheme = lightColorScheme(
     onSurface = LightMonochromeColors.textPrimary,
     surfaceVariant = LightMonochromeColors.surfaceSecondary,
     onSurfaceVariant = LightMonochromeColors.textSecondary,
+    surfaceContainerLowest = LightMonochromeColors.background,
+    surfaceContainerLow = LightMonochromeColors.surface,
+    surfaceContainer = LightMonochromeColors.surface,
+    surfaceContainerHigh = LightMonochromeColors.surfaceSecondary,
+    surfaceContainerHighest = LightMonochromeColors.surfacePressed,
     outline = LightMonochromeColors.border,
     outlineVariant = LightMonochromeColors.borderStrong,
     primaryContainer = LightMonochromeColors.surfaceSecondary,
     onPrimaryContainer = LightMonochromeColors.textPrimary,
+    secondaryContainer = LightMonochromeColors.surfaceSecondary,
+    onSecondaryContainer = LightMonochromeColors.textPrimary,
+    tertiaryContainer = LightMonochromeColors.surfaceSecondary,
+    onTertiaryContainer = LightMonochromeColors.textPrimary,
+    inverseSurface = LightMonochromeColors.textPrimary,
+    inverseOnSurface = LightMonochromeColors.background,
+    inversePrimary = LightMonochromeColors.background,
+    scrim = LightMonochromeColors.controlSelected,
     error = LightMonochromeColors.textPrimary,
     onError = LightMonochromeColors.controlSelectedContent
 )
@@ -75,7 +101,8 @@ fun AuraMusicTheme(
 
     CompositionLocalProvider(
         LocalIsDark provides darkTheme,
-        LocalMonochromeColors provides monochromeColors
+        LocalMonochromeColors provides monochromeColors,
+        LocalAppColorScheme provides AppColorScheme.monochrome(darkTheme)
     ) {
         MaterialTheme(
             colorScheme = colorScheme,

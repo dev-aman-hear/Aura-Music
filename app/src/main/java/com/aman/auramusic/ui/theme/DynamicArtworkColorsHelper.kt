@@ -6,11 +6,13 @@ import android.graphics.BitmapFactory
 import android.graphics.drawable.BitmapDrawable
 import android.net.Uri
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
 import androidx.palette.graphics.Palette
 import coil.Coil
 import coil.request.CachePolicy
 import coil.request.ImageRequest
 import coil.request.SuccessResult
+import com.aman.auramusic.data.model.AppSettings
 import com.aman.auramusic.data.model.Song
 import com.aman.auramusic.online.util.ArtworkQualityOptimizer
 import com.aman.auramusic.util.ArtworkExtractor
@@ -20,7 +22,6 @@ import kotlinx.coroutines.withContext
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
-import androidx.compose.ui.graphics.toArgb
 
 /**
  * Encapsulates the extracted harmonious colors for the Apple Music-inspired ambient background.
@@ -64,191 +65,198 @@ data class PlayerArtworkPalette(
                 )
             }
         }
+
+        fun fromPreset(presetName: String, isDark: Boolean): PlayerArtworkPalette {
+            return when (presetName.trim().lowercase()) {
+                "midnight indigo" -> {
+                    val p = if (isDark) Color(0xFF1A237E) else Color(0xFFC5CAE9)
+                    val s = if (isDark) Color(0xFF0D1642) else Color(0xFF9FA8DA)
+                    val t = if (isDark) Color(0xFF070B24) else Color(0xFFE8EAF6)
+                    val a = if (isDark) Color(0xFF3949AB) else Color(0xFF7986CB)
+                    PlayerArtworkPalette(
+                        primary = p, secondary = s, tertiary = t, accent = a,
+                        primaryArgb = p.toArgb(), secondaryArgb = s.toArgb(), tertiaryArgb = t.toArgb(), accentArgb = a.toArgb(),
+                        isLightArtwork = !isDark
+                    )
+                }
+                "crimson velvet" -> {
+                    val p = if (isDark) Color(0xFF880E4F) else Color(0xFFF8BBD0)
+                    val s = if (isDark) Color(0xFF4A0027) else Color(0xFFF48FB1)
+                    val t = if (isDark) Color(0xFF260013) else Color(0xFFFCE4EC)
+                    val a = if (isDark) Color(0xFFC2185B) else Color(0xFFEC407A)
+                    PlayerArtworkPalette(
+                        primary = p, secondary = s, tertiary = t, accent = a,
+                        primaryArgb = p.toArgb(), secondaryArgb = s.toArgb(), tertiaryArgb = t.toArgb(), accentArgb = a.toArgb(),
+                        isLightArtwork = !isDark
+                    )
+                }
+                "emerald pine" -> {
+                    val p = if (isDark) Color(0xFF1B5E20) else Color(0xFFC8E6C9)
+                    val s = if (isDark) Color(0xFF0B330F) else Color(0xFFA5D6A7)
+                    val t = if (isDark) Color(0xFF051C08) else Color(0xFFE8F5E9)
+                    val a = if (isDark) Color(0xFF2E7D32) else Color(0xFF81C784)
+                    PlayerArtworkPalette(
+                        primary = p, secondary = s, tertiary = t, accent = a,
+                        primaryArgb = p.toArgb(), secondaryArgb = s.toArgb(), tertiaryArgb = t.toArgb(), accentArgb = a.toArgb(),
+                        isLightArtwork = !isDark
+                    )
+                }
+                "nordic slate" -> {
+                    val p = if (isDark) Color(0xFF263238) else Color(0xFFCFD8DC)
+                    val s = if (isDark) Color(0xFF151C1F) else Color(0xFFB0BEC5)
+                    val t = if (isDark) Color(0xFF0B0F10) else Color(0xFFECEFF1)
+                    val a = if (isDark) Color(0xFF37474F) else Color(0xFF90A4AE)
+                    PlayerArtworkPalette(
+                        primary = p, secondary = s, tertiary = t, accent = a,
+                        primaryArgb = p.toArgb(), secondaryArgb = s.toArgb(), tertiaryArgb = t.toArgb(), accentArgb = a.toArgb(),
+                        isLightArtwork = !isDark
+                    )
+                }
+                else -> neutral(isDark)
+            }
+        }
+
+        fun fromCustomColors(hexList: List<String>, isDark: Boolean): PlayerArtworkPalette {
+            val colors = hexList.mapNotNull { hex ->
+                runCatching {
+                    val clean = hex.trim().removePrefix("#")
+                    val colorInt = if (clean.length == 6) {
+                        (0xFF000000 or clean.toLong(16)).toInt()
+                    } else if (clean.length == 8) {
+                        clean.toLong(16).toInt()
+                    } else null
+                    colorInt?.let { Color(it) }
+                }.getOrNull()
+            }
+            if (colors.size < 2) return neutral(isDark)
+
+            val p = colors[0]
+            val s = colors[1]
+            val t = if (colors.size > 2) colors[2] else s
+            val a = if (colors.size > 3) colors[3] else p
+
+            return PlayerArtworkPalette(
+                primary = p,
+                secondary = s,
+                tertiary = t,
+                accent = a,
+                primaryArgb = p.toArgb(),
+                secondaryArgb = s.toArgb(),
+                tertiaryArgb = t.toArgb(),
+                accentArgb = a.toArgb(),
+                isLightArtwork = !isDark
+            )
+        }
     }
 }
 
 /**
- * Unified semantic color scheme for player surfaces across the expanded player,
- * mini player, queue, lyrics, and dialogs.
+ * Represents the selectable player theme modes in Settings:
+ * Dynamic Artwork, Preset, and Custom.
  */
-data class PlayerColorScheme(
-    val isDynamic: Boolean,
-    val isDark: Boolean,
-    val ambientPrimary: Color,
-    val ambientSecondary: Color,
-    val ambientTertiary: Color,
-    val ambientAccent: Color,
-    val buttonSurface: Color,
-    val buttonBorder: Color,
-    val buttonIconTint: Color,
-    val prominentSurface: Color,
-    val prominentBorder: Color,
-    val prominentIconTint: Color,
-    val capsuleSurface: Color,
-    val capsuleBorder: Color,
-    val capsuleContent: Color,
-    val progressTrack: Color,
-    val progressIndicator: Color,
-    val queueItemActiveSurface: Color,
-    val queueItemActiveBorder: Color,
-    val queueItemActiveContent: Color,
-    val queueItemDraggingSurface: Color,
-    val queueActionSurface: Color,
-    val queueActionContent: Color,
-    val queueActionActiveSurface: Color,
-    val queueActionActiveContent: Color,
-    val dragHandle: Color,
-    val dialogSurface: Color,
-    val dialogBorder: Color,
-    val dialogAccent: Color,
-    val textPrimary: Color,
-    val textSecondary: Color,
-    val queueItemInactiveTitle: Color = textPrimary,
-    val queueItemInactiveArtist: Color = textSecondary
-)
+enum class PlayerThemeMode(val displayName: String) {
+    DYNAMIC_ARTWORK("Dynamic Artwork"),
+    PRESET("Preset"),
+    CUSTOM("Custom");
+
+    companion object {
+        fun fromString(value: String): PlayerThemeMode {
+            return when (value.trim().lowercase()) {
+                "dynamic artwork", "dynamic_artwork", "dynamic" -> DYNAMIC_ARTWORK
+                "custom", "custom palette", "custom_palette" -> CUSTOM
+                else -> PRESET
+            }
+        }
+    }
+}
 
 /**
- * Pure calculation function resolving the unified PlayerColorScheme.
+ * Represents the player's active palette source mode.
  */
-fun resolvePlayerColorScheme(
-    isDynamic: Boolean,
-    isDark: Boolean,
-    primary: Color,
-    secondary: Color,
-    tertiary: Color,
-    accent: Color,
-    surfaceVariant: Color = if (isDark) Color(0xFF2A2A2A) else Color(0xFFE5E5EA),
-    outline: Color = if (isDark) Color(0xFF38383A) else Color(0xFFD1D1D6),
-    outlineVariant: Color = if (isDark) Color(0xFF2C2C2E) else Color(0xFFE5E5EA),
-    onSurface: Color = if (isDark) Color(0xFFF2F2F7) else Color(0xFF1C1C1E),
-    onSurfaceVariant: Color = if (isDark) Color(0xFF8E8E93) else Color(0xFF8E8E93),
-    themePrimary: Color = if (isDark) Color.White else Color.Black,
-    onPrimary: Color = if (isDark) Color.Black else Color.White,
-    background: Color = if (isDark) Color(0xFF121212) else Color(0xFFFFFFFF),
-    onBackground: Color = if (isDark) Color.White else Color(0xFF111111)
-): PlayerColorScheme {
-    if (!isDynamic) {
-        return PlayerColorScheme(
-            isDynamic = false,
-            isDark = isDark,
-            ambientPrimary = background,
-            ambientSecondary = background,
-            ambientTertiary = background,
-            ambientAccent = background,
-            buttonSurface = surfaceVariant,
-            buttonBorder = outline,
-            buttonIconTint = onSurface,
-            prominentSurface = themePrimary,
-            prominentBorder = outline,
-            prominentIconTint = onPrimary,
-            capsuleSurface = surfaceVariant,
-            capsuleBorder = outlineVariant,
-            capsuleContent = onSurface,
-            progressTrack = outline,
-            progressIndicator = themePrimary,
-            queueItemActiveSurface = surfaceVariant,
-            queueItemActiveBorder = Color.Transparent,
-            queueItemActiveContent = themePrimary,
-            queueItemDraggingSurface = surfaceVariant.copy(alpha = 0.7f),
-            queueActionSurface = Color.Transparent,
-            queueActionContent = onBackground,
-            queueActionActiveSurface = Color.Transparent,
-            queueActionActiveContent = onBackground,
-            dragHandle = onSurfaceVariant.copy(alpha = 0.40f),
-            dialogSurface = if (isDark) Color(0xFF1E1E1E) else Color(0xFFFFFFFF),
-            dialogBorder = outline,
-            dialogAccent = themePrimary,
-            textPrimary = onBackground,
-            textSecondary = onSurfaceVariant,
-            queueItemInactiveTitle = onBackground,
-            queueItemInactiveArtist = onSurfaceVariant
-        )
+enum class PlayerPaletteMode {
+    MONOCHROME,
+    PRESET,
+    DYNAMIC_ARTWORK,
+    CUSTOM;
+
+    val isColored: Boolean
+        get() = this != MONOCHROME
+}
+
+/**
+ * Resolves the effective palette mode from unified [PlayerThemeMode], preset selection, and custom hexes.
+ */
+fun resolvePlayerPaletteMode(
+    playerThemeMode: String,
+    colorPreset: String,
+    customPaletteHexes: String = "",
+    dynamicArtworkColors: Boolean = false
+): PlayerPaletteMode {
+    val mode = PlayerThemeMode.fromString(playerThemeMode)
+    return when (mode) {
+        PlayerThemeMode.DYNAMIC_ARTWORK -> PlayerPaletteMode.DYNAMIC_ARTWORK
+        PlayerThemeMode.CUSTOM -> PlayerPaletteMode.CUSTOM
+        PlayerThemeMode.PRESET -> {
+            if (colorPreset.equals("Monochrome", ignoreCase = true)) {
+                PlayerPaletteMode.MONOCHROME
+            } else {
+                PlayerPaletteMode.PRESET
+            }
+        }
     }
+}
 
-    val accentArgb = accent.toArgb()
-    val accentLuminance = ColorHarmonizer.calculateLuminance(accentArgb)
-    val prominentIcon = if (accentLuminance > 0.55f) Color(0xFF111111) else Color.White
-    val highContrastText = if (isDark) Color.White else Color(0xFF111111)
-    val secondaryText = if (isDark) Color.White.copy(alpha = 0.72f) else Color.Black.copy(alpha = 0.68f)
-
-    // Ensure accent for queue item active content has adequate contrast against the ambient surface
-    val contrastSafeAccent = if (isDark) {
-        if (accentLuminance < 0.38f) {
-            val hsl = ColorHarmonizer.rgbToHsl(accentArgb)
-            Color(ColorHarmonizer.hslToRgb(hsl[0], hsl[1].coerceAtLeast(0.40f), 0.58f))
-        } else accent
+/**
+ * Resolves the effective palette mode following strict precedence:
+ * 1. Dynamic Artwork Colors (if enabled) takes highest precedence and adapts to current track art.
+ * 2. Static Preset (if non-monochrome preset selected).
+ * 3. Custom Palette (if custom hex list present).
+ * 4. Fallback to Monochrome (clean neutral scheme).
+ */
+fun resolvePlayerPaletteMode(
+    dynamicArtworkColors: Boolean,
+    colorPreset: String,
+    customPaletteHexes: String = ""
+): PlayerPaletteMode {
+    val mode = if (dynamicArtworkColors) {
+        PlayerThemeMode.DYNAMIC_ARTWORK
+    } else if (customPaletteHexes.isNotBlank() && colorPreset.equals("Custom", ignoreCase = true)) {
+        PlayerThemeMode.CUSTOM
+    } else if (colorPreset.isNotBlank() && !colorPreset.equals("Monochrome", ignoreCase = true)) {
+        PlayerThemeMode.PRESET
+    } else if (customPaletteHexes.isNotBlank()) {
+        PlayerThemeMode.CUSTOM
     } else {
-        if (accentLuminance > 0.65f) {
-            val hsl = ColorHarmonizer.rgbToHsl(accentArgb)
-            Color(ColorHarmonizer.hslToRgb(hsl[0], hsl[1].coerceAtLeast(0.40f), 0.40f))
-        } else accent
+        PlayerThemeMode.PRESET
     }
-
-    // Subtle dynamic ambient tinting for inactive queue titles and artists
-    val queueInactiveTitle = if (isDark) {
-        Color(
-            red = (Color.White.red * 0.85f + primary.red * 0.15f),
-            green = (Color.White.green * 0.85f + primary.green * 0.15f),
-            blue = (Color.White.blue * 0.85f + primary.blue * 0.15f),
-            alpha = 0.95f
-        )
-    } else {
-        Color(
-            red = (0.08f * 0.85f + primary.red * 0.15f).coerceIn(0f, 0.22f),
-            green = (0.08f * 0.85f + primary.green * 0.15f).coerceIn(0f, 0.22f),
-            blue = (0.08f * 0.85f + primary.blue * 0.15f).coerceIn(0f, 0.22f),
-            alpha = 1.0f
-        )
-    }
-    val queueInactiveArtist = if (isDark) {
-        queueInactiveTitle.copy(alpha = 0.70f)
-    } else {
-        queueInactiveTitle.copy(alpha = 0.65f)
-    }
-
-    return PlayerColorScheme(
-        isDynamic = true,
-        isDark = isDark,
-        ambientPrimary = primary,
-        ambientSecondary = secondary,
-        ambientTertiary = tertiary,
-        ambientAccent = accent,
-        // ~75% opacity (roughly 25% transparency) for translucent button surfaces
-        buttonSurface = secondary.copy(alpha = if (isDark) 0.75f else 0.72f),
-        buttonBorder = primary.copy(alpha = if (isDark) 0.35f else 0.30f),
-        buttonIconTint = if (isDark) Color.White else Color(0xFF181818),
-        // Prominent Play/Pause button
-        prominentSurface = accent.copy(alpha = 0.85f),
-        prominentBorder = accent.copy(alpha = 0.50f),
-        prominentIconTint = prominentIcon,
-        // Secondary capsules (Quality, Switcher pill)
-        capsuleSurface = secondary.copy(alpha = 0.75f),
-        capsuleBorder = primary.copy(alpha = 0.30f),
-        capsuleContent = if (isDark) Color.White else Color(0xFF181818),
-        // Scrubber / Progress
-        progressTrack = secondary.copy(alpha = 0.40f),
-        progressIndicator = accent,
-        // Queue current track highlight & dragging
-        queueItemActiveSurface = primary.copy(alpha = if (isDark) 0.28f else 0.22f),
-        queueItemActiveBorder = primary.copy(alpha = if (isDark) 0.45f else 0.35f),
-        queueItemActiveContent = contrastSafeAccent,
-        queueItemDraggingSurface = secondary.copy(alpha = 0.65f),
-        // Queue action pills (Clear, Save, Shuffle, Repeat)
-        queueActionSurface = secondary.copy(alpha = 0.50f),
-        queueActionContent = if (isDark) Color.White.copy(alpha = 0.85f) else Color.Black.copy(alpha = 0.85f),
-        queueActionActiveSurface = accent.copy(alpha = 0.75f),
-        queueActionActiveContent = prominentIcon,
-        // Drag handle
-        dragHandle = if (isDark) Color.White.copy(alpha = 0.35f) else Color.Black.copy(alpha = 0.25f),
-        // Dialogs
-        dialogSurface = if (isDark) Color(0xFF1C1C1E).copy(alpha = 0.95f) else Color(0xFFF2F2F7).copy(alpha = 0.95f),
-        dialogBorder = primary.copy(alpha = 0.35f),
-        dialogAccent = accent,
-        textPrimary = highContrastText,
-        textSecondary = secondaryText,
-        queueItemInactiveTitle = queueInactiveTitle,
-        queueItemInactiveArtist = queueInactiveArtist
+    return resolvePlayerPaletteMode(
+        playerThemeMode = mode.displayName,
+        colorPreset = colorPreset,
+        customPaletteHexes = customPaletteHexes,
+        dynamicArtworkColors = dynamicArtworkColors
     )
+}
+
+/**
+ * Resolves the effective player palette mode directly from [AppSettings].
+ */
+fun resolvePlayerPaletteMode(appSettings: AppSettings): PlayerPaletteMode {
+    if (!appSettings.isPlayerThemeActive()) {
+        return PlayerPaletteMode.MONOCHROME
+    }
+    val style = appSettings.themeColorStyle.ifBlank { appSettings.playerThemeMode }
+    return when {
+        style.equals("Dynamic Artwork", ignoreCase = true) -> PlayerPaletteMode.DYNAMIC_ARTWORK
+        style.equals("Custom", ignoreCase = true) || style.equals("Custom Palette", ignoreCase = true) -> PlayerPaletteMode.CUSTOM
+        else -> {
+            val preset = appSettings.appColorPreset.ifBlank { appSettings.colorPreset }
+            if (preset.equals("Monochrome", ignoreCase = true)) {
+                PlayerPaletteMode.MONOCHROME
+            } else {
+                PlayerPaletteMode.PRESET
+            }
+        }
+    }
 }
 
 /**
@@ -261,10 +269,11 @@ fun rememberPlayerColorScheme(
     primary: Color,
     secondary: Color,
     tertiary: Color,
-    accent: Color
+    accent: Color,
+    paletteMode: PlayerPaletteMode = if (isDynamic) PlayerPaletteMode.DYNAMIC_ARTWORK else PlayerPaletteMode.MONOCHROME
 ): PlayerColorScheme {
     val cs = MaterialTheme.colorScheme
-    return remember(isDynamic, isDark, primary, secondary, tertiary, accent, cs) {
+    return remember(isDynamic, isDark, primary, secondary, tertiary, accent, paletteMode, cs) {
         resolvePlayerColorScheme(
             isDynamic = isDynamic,
             isDark = isDark,
@@ -280,7 +289,8 @@ fun rememberPlayerColorScheme(
             themePrimary = cs.primary,
             onPrimary = cs.onPrimary,
             background = cs.background,
-            onBackground = cs.onBackground
+            onBackground = cs.onBackground,
+            paletteMode = paletteMode
         )
     }
 }
@@ -580,13 +590,25 @@ object DynamicArtworkColorsHelper {
         }
 
         // 6. Select ACCENT (controlled highlight color for progress, selected queue, and important playback controls)
-        val accentCandidate = candidates.maxByOrNull { rgb ->
+        // Prefer a colour genuinely represented in this artwork instead of simply choosing
+        // the most saturated swatch (which can make unrelated tracks look orange).
+        val accentCandidate = dominantRgb?.takeIf { dominant ->
+            val hsl = ColorHarmonizer.rgbToHsl(dominant)
+            hsl[1] >= 0.18f && hsl[2] in 0.12f..0.88f
+        } ?: candidates.maxByOrNull { rgb ->
             val hsl = ColorHarmonizer.rgbToHsl(rgb)
-            val s = hsl[1]
-            val l = hsl[2]
-            val satScore = s
-            val lScore = if (isDark) (1f - kotlin.math.abs(l - 0.55f)) else (1f - kotlin.math.abs(l - 0.45f))
-            satScore * 0.70f + lScore * 0.30f
+            val saturationScore = 1f - kotlin.math.abs(hsl[1] - 0.52f)
+            val lightnessTarget = if (isDark) 0.58f else 0.42f
+            val lightnessScore = 1f - kotlin.math.abs(hsl[2] - lightnessTarget)
+            val dominantHueBonus = if (dominantRgb != null) {
+                val dominantHsl = ColorHarmonizer.rgbToHsl(dominantRgb)
+                val hueDifference = minOf(
+                    kotlin.math.abs(hsl[0] - dominantHsl[0]),
+                    360f - kotlin.math.abs(hsl[0] - dominantHsl[0])
+                )
+                1f - (hueDifference / 180f)
+            } else 0f
+            saturationScore * 0.25f + lightnessScore * 0.20f + dominantHueBonus * 0.55f
         } ?: primaryInt
 
         // 7. Harmonize luminance, saturation, and contrast for theme roles
