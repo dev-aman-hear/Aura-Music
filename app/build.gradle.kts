@@ -22,8 +22,14 @@ android {
         applicationId = "com.aman.auramusic"
         minSdk = 26
         targetSdk = 36
-        versionCode = 19
-        versionName = "1.0.6"
+        versionCode = 20
+        versionName = "1.0.7"
+        // Use the deployed AuraMusic Party backend by default; allow local/CI overrides with -PpartyApiBaseUrl=...
+        val partyApiBaseUrl = providers.gradleProperty("partyApiBaseUrl").orNull
+            ?.trim()
+            ?.takeIf { it.isNotEmpty() }
+            ?: "https://auramusic-party-server.onrender.com"
+        buildConfigField("String", "PARTY_API_BASE_URL", "\"$partyApiBaseUrl\"")
 
         manifestPlaceholders["appName"] = "Aura Music"
     }
@@ -114,6 +120,7 @@ dependencies {
     implementation("androidx.media3:media3-common:1.2.1")
     implementation("androidx.media3:media3-datasource:1.2.1")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
+    implementation("org.nanohttpd:nanohttpd-websocket:2.3.1")
     implementation("com.pierfrancescosoffritti.androidyoutubeplayer:core:13.0.0")
     implementation("com.google.code.gson:gson:2.10.1")
     debugImplementation(libs.androidx.compose.ui.tooling)

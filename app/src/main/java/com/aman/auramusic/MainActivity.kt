@@ -6,6 +6,7 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.util.Log
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
@@ -43,6 +44,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -72,6 +74,10 @@ import com.aman.auramusic.ui.screen.PlayerScreen
 import com.aman.auramusic.ui.screen.SearchScreen
 import com.aman.auramusic.ui.screen.SearchFilter
 import com.aman.auramusic.ui.screen.SettingsScreen
+import com.aman.auramusic.ui.screen.PartyModeScreen
+import com.aman.auramusic.party.PartyModeRepository
+import com.aman.auramusic.party.PartyRole
+import com.aman.auramusic.party.PartyConnectionMode
 import com.aman.auramusic.ui.screen.CollectionDetailScreen
 import com.aman.auramusic.ui.screen.home.ArtistDetailSheet
 import com.aman.auramusic.ui.screen.home.ArtistItem
@@ -102,6 +108,7 @@ import androidx.activity.viewModels
 import com.google.gson.Gson
 import java.io.File
 import com.aman.auramusic.util.ArtistArtworkCache
+import kotlinx.coroutines.launch
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
@@ -257,6 +264,13 @@ fun MusicScreen(musicViewModel: MusicViewModel) {
 
     val onlinePlaybackManager = OnlinePlaybackManagerHolder.get(context)
     val onlinePlaybackState by onlinePlaybackManager.playbackState.collectAsStateWithLifecycle()
+    val partyRepository = remember { PartyModeRepository(context = context.applicationContext) }
+    val partyState by partyRepository.state.collectAsStateWithLifecycle()
+    val partyScope = rememberCoroutineScope()
+    val partySongResolver = remember { OnlineMusicRepository() }
+    var lastPartySongId by remember { mutableStateOf("") }
+    var lastPartySentPosition by remember { mutableStateOf(-10_000L) }
+    var lastPartySentPlaying by remember { mutableStateOf(false) }
     var isOnlinePlaybackActive by remember { mutableStateOf(false) }
     var activeOnlineSong by remember { mutableStateOf<OnlineSong?>(null) }
     var showOnlineDiagnostics by remember { mutableStateOf(false) }
@@ -395,6 +409,114 @@ fun MusicScreen(musicViewModel: MusicViewModel) {
         }
     }
 
+    LaunchedEffect(partyState.session?.role, partyState.connected, partyState.session?.connectionMode, onlinePlaybackState.currentSong, onlinePlaybackState.currentPositionMs, onlinePlaybackState.isPlaying) {
+        val isHostInParty = partyState.connected && partyState.session?.role == PartyRole.HOST
+        val song = onlinePlaybackState.currentSong
+
+        if (!isHostInParty) return@LaunchedEffect
+
+        // If the host stops/clears the current song, there is no song payload to broadcast.
+        // Send an explicit pause command so guests do not continue playing their last track.
+        if (song == null) {
+            if (lastPartySongId.isNotBlank() && lastPartySentPlaying) {
+                partyRepository.sendHostCommand("pause")
+            }
+            lastPartySongId = ""
+            lastPartySentPosition = -10_000L
+            lastPartySentPlaying = false
+            return@LaunchedEffect
+        }
+
+        if (song.source == AudioSource.YOUTUBE || song.source == AudioSource.JIOSAAVN) {
+            val position = onlinePlaybackState.currentPositionMs.coerceAtLeast(0L)
+            val isLocalWifi = partyState.session?.connectionMode == PartyConnectionMode.LOCAL_WIFI
+            val minInterval = if (isLocalWifi) 300L else 1000L
+            val shouldSend = song.id != lastPartySongId || kotlin.math.abs(position - lastPartySentPosition) >= minInterval || onlinePlaybackState.isPlaying != lastPartySentPlaying
+            if (shouldSend) {
+                partyRepository.sendPlayback(song.id, song.title, song.artist, song.artworkUrl, song.source.name, position, onlinePlaybackState.isPlaying)
+                lastPartySongId = song.id
+                lastPartySentPosition = position
+                lastPartySentPlaying = onlinePlaybackState.isPlaying
+            }
+        }
+    }
+
+    LaunchedEffect(partyState.hostCommand, partyState.session?.role) {
+        val cmd = partyState.hostCommand ?: return@LaunchedEffect
+        if (partyState.session?.role == PartyRole.GUEST) {
+            when (cmd.command) {
+                "play" -> if (!onlinePlaybackManager.playbackState.value.isPlaying) onlinePlaybackManager.togglePlayPause()
+                "pause" -> if (onlinePlaybackManager.playbackState.value.isPlaying) onlinePlaybackManager.pause()
+                "next" -> onlinePlaybackManager.playNext()
+                "previous" -> onlinePlaybackManager.playPrevious()
+                "seek" -> cmd.positionMs?.let { onlinePlaybackManager.seekTo(it) }
+            }
+        }
+    }
+
+    // Process incoming playback updates at the app level, not inside PartyModeScreen.
+    // This keeps guest playback synchronized while the user browses other screens.
+    LaunchedEffect(partyState.playback, partyState.session?.role) {
+        val remote = partyState.playback ?: return@LaunchedEffect
+        if (partyState.session?.role != PartyRole.GUEST) return@LaunchedEffect
+        Log.d("AuraPartySync", "Guest playback update: songId=${remote.songId}, playing=${remote.isPlaying}, positionMs=${remote.positionMs}")
+        partyScope.launch {
+                                    val source = when (remote.source.lowercase().replace("_", "").replace(" ", "")) {
+                                        "youtube", "youtubemusic" -> AudioSource.YOUTUBE
+                                        "jiosaavn" -> AudioSource.JIOSAAVN
+                                        else -> null
+                                    }
+                                    if (source != null) {
+                                        val current = onlinePlaybackManager.playbackState.value
+                                        val sameSong = current.currentSong?.source == source && (current.currentSong?.id == remote.songId || (current.currentSong?.title.equals(remote.title, true) && current.currentSong?.artist.equals(remote.artist, true)))
+                                        val isLocalWifi = partyRepository.state.value.session?.connectionMode == PartyConnectionMode.LOCAL_WIFI
+                                        val driftThreshold = if (isLocalWifi) 200L else 700L
+                                        if (sameSong) {
+                                            // A guest must enter online-player mode too, so the normal mini-player
+                                            // and full player controls remain visible outside the Party screen.
+                                            isOnlinePlaybackActive = true
+                                            activeOnlineSong = current.currentSong
+                                            val drift = current.currentPositionMs - remote.positionMs
+                                            if (kotlin.math.abs(drift) > driftThreshold) {
+                                                onlinePlaybackManager.seekTo(remote.positionMs)
+                                            }
+                                            if (remote.isPlaying && !current.isPlaying) onlinePlaybackManager.togglePlayPause()
+                                            if (!remote.isPlaying && current.isPlaying) onlinePlaybackManager.pause()
+                                        } else {
+                                            val resolveStartTime = System.currentTimeMillis()
+                                            val matches = partySongResolver.search(remote.title, source)
+                                            val match = matches.firstOrNull { it.id == remote.songId }
+                                                ?: matches.firstOrNull { it.title.equals(remote.title, true) && it.artist.equals(remote.artist, true) }
+                                                ?: matches.firstOrNull { it.title.equals(remote.title, true) }
+                                            if (match != null) {
+                                                val resolved = partySongResolver.resolveStream(match)
+                                                val elapsedResolvingMs = System.currentTimeMillis() - resolveStartTime
+                                                Log.d("AuraPartySync", "Resolved guest stream in ${elapsedResolvingMs}ms for songId=${remote.songId}")
+                                                val latestPlayback = partyRepository.state.value.playback
+                                                val basePosition = if (latestPlayback != null && (latestPlayback.songId == remote.songId || latestPlayback.title.equals(remote.title, true))) {
+                                                    latestPlayback.positionMs
+                                                } else {
+                                                    remote.positionMs
+                                                }
+                                                val targetPosition = if (remote.isPlaying) basePosition + elapsedResolvingMs else basePosition
+                                                // Activate the shared online-player UI before starting the guest's
+                                                // local stream, otherwise Home can remain without its mini-player.
+                                                isOnlinePlaybackActive = true
+                                                activeOnlineSong = resolved
+                                                playerViewModel.updateOnlinePlaybackState(
+                                                    song = resolved,
+                                                    isPlaying = remote.isPlaying,
+                                                    positionMs = targetPosition,
+                                                    durationMs = resolved.durationSeconds * 1000L
+                                                )
+                                                onlinePlaybackManager.playSong(resolved, startPositionMs = targetPosition)
+                                                if (!remote.isPlaying) onlinePlaybackManager.pause()
+                                            }
+                                        }
+                                    }
+        }
+    }
+
     LaunchedEffect(onlinePlaybackState.currentLyrics, isOnlinePlaybackActive) {
         if (isOnlinePlaybackActive) {
             val currentLyrics = onlinePlaybackState.currentLyrics
@@ -406,6 +528,7 @@ fun MusicScreen(musicViewModel: MusicViewModel) {
     }
 
     var showAboutDialog by remember { mutableStateOf(false) }
+    var showPartyMode by remember { mutableStateOf(false) }
     var showNewPlaylistDialog by remember { mutableStateOf(false) }
     var showExportPlaylistDialog by remember { mutableStateOf(false) }
     var searchQuery by rememberSaveable { mutableStateOf("") }
@@ -702,6 +825,44 @@ fun MusicScreen(musicViewModel: MusicViewModel) {
                             onOpenSettings = { showSettings = true },
                             onAddToPlaylist = { songToAddToPlaylist = it },
                             onCreatePlaylist = { showNewPlaylistDialog = true },
+                            onImportYouTubePlaylist = { pastedUrl ->
+                                partyScope.launch {
+                                    try {
+                                        val uri = runCatching { Uri.parse(pastedUrl) }.getOrNull()
+                                        val host = uri?.host.orEmpty().lowercase()
+                                        val playlistId = when {
+                                            host == "youtube.com" || host.endsWith(".youtube.com") ->
+                                                uri?.getQueryParameter("list")
+                                            pastedUrl.matches(Regex("^(PL|UU|LL|RD|OLAK|MPRE|VL|RDCLAK)[A-Za-z0-9_-]{8,}$")) ->
+                                                pastedUrl
+                                            else -> null
+                                        }?.trim()?.takeIf { it.matches(Regex("[A-Za-z0-9_-]{8,}")) }
+
+                                        if (playlistId == null) {
+                                            Toast.makeText(context, "Paste a valid YouTube Music playlist link.", Toast.LENGTH_LONG).show()
+                                            return@launch
+                                        }
+
+                                        Toast.makeText(context, "Fetching YouTube Music playlist…", Toast.LENGTH_SHORT).show()
+                                        val repository = OnlineMusicRepository()
+                                        val playlist = OnlinePlaylist(
+                                            id = playlistId,
+                                            title = "YouTube Music Playlist",
+                                            subtitle = "Imported from YouTube Music",
+                                            source = AudioSource.YOUTUBE
+                                        )
+                                        val tracks = repository.getPlaylistSongs(playlist)
+                                        if (tracks.isEmpty()) {
+                                            Toast.makeText(context, "No tracks found. Check that the playlist is public and try again.", Toast.LENGTH_LONG).show()
+                                        } else {
+                                            musicViewModel.savePlaylist("YouTube Music Playlist", emptyList(), onlineSongs = tracks)
+                                            Toast.makeText(context, "Imported ${tracks.size} songs. You can rename the playlist in Library.", Toast.LENGTH_LONG).show()
+                                        }
+                                    } catch (e: Exception) {
+                                        Toast.makeText(context, "Couldn't import playlist: ${e.message ?: "network or playlist error"}", Toast.LENGTH_LONG).show()
+                                    }
+                                }
+                            },
                             onPlaylistSelected = { selectedPlaylistId = it.id },
                             onPlaylistExport = { playlist ->
                                 pendingExportTarget = ExportTarget.SinglePlaylist(playlist)
@@ -805,7 +966,8 @@ fun MusicScreen(musicViewModel: MusicViewModel) {
                                     onExportPlaylist = { showExportPlaylistDialog = true },
                                     onRefresh = { musicViewModel.loadSongs(forceRefresh = true) },
                                     onBack = { showSettings = false },
-                                    onShowAbout = { showAboutDialog = true }
+                                    onShowAbout = { showAboutDialog = true },
+                                    onOpenPartyMode = { showPartyMode = true }
                                 )
                             }
                         }
@@ -1475,6 +1637,42 @@ fun MusicScreen(musicViewModel: MusicViewModel) {
             )
         }
 
+
+        if (showPartyMode) {
+            BackHandler { showPartyMode = false }
+            PartyModeScreen(
+                repository = partyRepository,
+                onBack = { showPartyMode = false },
+                onApprovedSongRequest = { title, artist, sourceName ->
+                    partyScope.launch {
+                        val source = when (sourceName.lowercase().replace("_", "").replace(" ", "")) {
+                            "youtube", "youtubemusic" -> AudioSource.YOUTUBE
+                            "jiosaavn" -> AudioSource.JIOSAAVN
+                            else -> null
+                        }
+                        if (source != null) {
+                            val matches = partySongResolver.search(title, source)
+                            val match = matches.firstOrNull { it.title.equals(title, true) && it.artist.equals(artist, true) }
+                                ?: matches.firstOrNull { it.title.equals(title, true) }
+                            if (match != null) {
+                                val resolved = partySongResolver.resolveStream(match)
+                                onlinePlaybackManager.playSong(resolved)
+                            }
+                        }
+                    }
+                },
+                onHostCommand = { command ->
+                    when (command) {
+                        "play" -> if (!onlinePlaybackManager.playbackState.value.isPlaying) onlinePlaybackManager.togglePlayPause()
+                        "pause" -> if (onlinePlaybackManager.playbackState.value.isPlaying) onlinePlaybackManager.pause()
+                        "next" -> onlinePlaybackManager.playNext()
+                        "previous" -> onlinePlaybackManager.playPrevious()
+                    }
+                    partyRepository.sendHostCommand(command)
+                },
+
+            )
+        }
 
         if (showOnlineDiagnostics) {
             StreamDiagnosticsSheet(
