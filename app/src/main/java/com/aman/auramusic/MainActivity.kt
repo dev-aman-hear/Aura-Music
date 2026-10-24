@@ -548,8 +548,9 @@ fun MusicScreen(musicViewModel: MusicViewModel) {
 
                 val elapsedSinceLatestUpdate = (System.currentTimeMillis() - partyPlaybackReceivedAtMs)
                     .coerceAtLeast(0L)
-                val targetPosition = (latestPlayback!!.positionMs +
-                    if (latestPlayback.isPlaying) elapsedSinceLatestUpdate else 0L).coerceAtLeast(0L)
+                val currentHostPlayback = latestPlayback ?: return@launch
+                val targetPosition = (currentHostPlayback.positionMs +
+                    if (currentHostPlayback.isPlaying) elapsedSinceLatestUpdate else 0L).coerceAtLeast(0L)
                 val elapsedResolvingMs = System.currentTimeMillis() - resolveStartTime
                 Log.d(
                     "AuraPartySync",
@@ -561,12 +562,12 @@ fun MusicScreen(musicViewModel: MusicViewModel) {
                 activeOnlineSong = resolved
                 playerViewModel.updateOnlinePlaybackState(
                     song = resolved,
-                    isPlaying = latestPlayback.isPlaying,
+                    isPlaying = currentHostPlayback.isPlaying,
                     positionMs = targetPosition,
                     durationMs = resolved.durationSeconds * 1000L
                 )
                 onlinePlaybackManager.playSong(resolved, startPositionMs = targetPosition)
-                if (!latestPlayback.isPlaying) onlinePlaybackManager.pause()
+                if (!currentHostPlayback.isPlaying) onlinePlaybackManager.pause()
             } catch (e: kotlinx.coroutines.CancellationException) {
                 throw e
             } catch (e: Exception) {
