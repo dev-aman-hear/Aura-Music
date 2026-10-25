@@ -448,8 +448,8 @@ fun MusicScreen(musicViewModel: MusicViewModel) {
         val cmd = partyState.hostCommand ?: return@LaunchedEffect
         if (partyState.session?.role == PartyRole.GUEST) {
             when (cmd.command) {
-                "play" -> if (!onlinePlaybackManager.playbackState.value.isPlaying) onlinePlaybackManager.togglePlayPause()
-                "pause" -> if (onlinePlaybackManager.playbackState.value.isPlaying) onlinePlaybackManager.pause()
+                "play" -> onlinePlaybackManager.setPlaying(true)
+                "pause" -> onlinePlaybackManager.setPlaying(false)
                 "next" -> onlinePlaybackManager.playNext()
                 "previous" -> onlinePlaybackManager.playPrevious()
                 "seek" -> cmd.positionMs?.let { onlinePlaybackManager.seekTo(it) }
@@ -499,11 +499,9 @@ fun MusicScreen(musicViewModel: MusicViewModel) {
             if (kotlin.math.abs(drift) > driftThreshold) {
                 onlinePlaybackManager.seekTo(remote.positionMs.coerceAtLeast(0L))
             }
-            if (remote.isPlaying && !current.isPlaying) {
-                onlinePlaybackManager.togglePlayPause()
-            } else if (!remote.isPlaying && current.isPlaying) {
-                onlinePlaybackManager.pause()
-            }
+            // Use an explicit target state instead of toggling: repeated snapshots must
+            // never accidentally undo a play/pause command while player state catches up.
+            onlinePlaybackManager.setPlaying(remote.isPlaying)
             return@LaunchedEffect
         }
 
@@ -578,7 +576,7 @@ fun MusicScreen(musicViewModel: MusicViewModel) {
                     durationMs = resolved.durationSeconds * 1000L
                 )
                 onlinePlaybackManager.playSong(resolved, startPositionMs = targetPosition)
-                if (!currentHostPlayback.isPlaying) onlinePlaybackManager.pause()
+                onlinePlaybackManager.setPlaying(currentHostPlayback.isPlaying)
             } catch (e: kotlinx.coroutines.CancellationException) {
                 throw e
             } catch (e: Exception) {
