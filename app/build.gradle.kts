@@ -46,6 +46,16 @@ android {
             applicationId = "com.heytap.music"
             manifestPlaceholders["appName"] = "Aura Music"
         }
+        create("qqmusic") {
+            dimension = "brand"
+            applicationId = "com.tencent.qqmusic"
+            manifestPlaceholders["appName"] = "QQ Music"
+        }
+        create("kugou") {
+            dimension = "brand"
+            applicationId = "com.kugou.android"
+            manifestPlaceholders["appName"] = "Kugou Music"
+        }
     }
 
     signingConfigs {
