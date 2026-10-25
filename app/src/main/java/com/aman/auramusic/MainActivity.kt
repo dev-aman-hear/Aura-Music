@@ -76,6 +76,7 @@ import com.aman.auramusic.ui.screen.SearchFilter
 import com.aman.auramusic.ui.screen.SettingsScreen
 import com.aman.auramusic.ui.screen.PartyModeScreen
 import com.aman.auramusic.party.PartyModeRepository
+import com.aman.auramusic.party.PartyPlaybackSyncPolicy
 import com.aman.auramusic.party.PartyRole
 import com.aman.auramusic.party.PartyConnectionMode
 import com.aman.auramusic.ui.screen.CollectionDetailScreen
@@ -463,11 +464,12 @@ fun MusicScreen(musicViewModel: MusicViewModel) {
         val remote = partyState.playback ?: return@LaunchedEffect
         if (partyState.session?.role != PartyRole.GUEST) return@LaunchedEffect
 
-        val source = when (remote.source.lowercase().replace("_", "").replace(" ", "")) {
-            "youtube", "youtubemusic" -> AudioSource.YOUTUBE
-            "jiosaavn" -> AudioSource.JIOSAAVN
-            else -> null
-        } ?: return@LaunchedEffect
+        val sourceName = PartyPlaybackSyncPolicy.normalizeSource(remote.source) ?: return@LaunchedEffect
+        val source = when (sourceName) {
+            "YOUTUBE" -> AudioSource.YOUTUBE
+            "JIOSAAVN" -> AudioSource.JIOSAAVN
+            else -> return@LaunchedEffect
+        }
 
         Log.d(
             "AuraPartySync",
@@ -475,10 +477,16 @@ fun MusicScreen(musicViewModel: MusicViewModel) {
         )
 
         val current = onlinePlaybackManager.playbackState.value
-        val sameSong = current.currentSong?.source == source &&
-            (current.currentSong?.id == remote.songId ||
-                (current.currentSong?.title.equals(remote.title, true) &&
-                    current.currentSong?.artist.equals(remote.artist, true)))
+        val sameSong = PartyPlaybackSyncPolicy.sameTrack(
+            currentSource = current.currentSong?.source?.name,
+            currentId = current.currentSong?.id,
+            currentTitle = current.currentSong?.title,
+            currentArtist = current.currentSong?.artist,
+            remoteSource = sourceName,
+            remoteId = remote.songId,
+            remoteTitle = remote.title,
+            remoteArtist = remote.artist
+        )
         val isLocalWifi =
             partyRepository.state.value.session?.connectionMode == PartyConnectionMode.LOCAL_WIFI
         val driftThreshold = if (isLocalWifi) 200L else 700L
@@ -501,7 +509,7 @@ fun MusicScreen(musicViewModel: MusicViewModel) {
 
         // Position updates arrive repeatedly while a track is being resolved. Deduplicate
         // resolution by track identity so a slow provider lookup doesn't spawn many requests.
-        val resolveKey = "${source.name}:${remote.songId.ifBlank { remote.title.lowercase() + "|" + remote.artist.lowercase() }}"
+        val resolveKey = PartyPlaybackSyncPolicy.resolveKey(sourceName, remote.songId, remote.title, remote.artist)
         if (resolveKey in resolvingPartySongKeys) return@LaunchedEffect
         resolvingPartySongKeys = resolvingPartySongKeys + resolveKey
 
@@ -523,18 +531,18 @@ fun MusicScreen(musicViewModel: MusicViewModel) {
                 val resolved = partySongResolver.resolveStream(match)
                 val latestState = partyRepository.state.value
                 val latestPlayback = latestState.playback
-                val latestSource = latestPlayback?.source?.lowercase()
-                    ?.replace("_", "")?.replace(" ", "")
-                val latestSourceMatches = when (latestSource) {
-                    "youtube", "youtubemusic" -> AudioSource.YOUTUBE
-                    "jiosaavn" -> AudioSource.JIOSAAVN
-                    else -> null
-                }
+                val latestSource = latestPlayback?.let { PartyPlaybackSyncPolicy.normalizeSource(it.source) }
                 val latestIsSameTrack = latestPlayback != null &&
-                    latestSourceMatches == source &&
-                    (latestPlayback.songId == remote.songId ||
-                        (latestPlayback.title.equals(remote.title, true) &&
-                            latestPlayback.artist.equals(remote.artist, true)))
+                    PartyPlaybackSyncPolicy.sameTrack(
+                        currentSource = latestSource,
+                        currentId = latestPlayback.songId,
+                        currentTitle = latestPlayback.title,
+                        currentArtist = latestPlayback.artist,
+                        remoteSource = sourceName,
+                        remoteId = remote.songId,
+                        remoteTitle = remote.title,
+                        remoteArtist = remote.artist
+                    )
 
                 // A newer host track may have arrived while search/stream resolution was in
                 // flight. Never let an old request overwrite the latest requested track.
@@ -549,8 +557,11 @@ fun MusicScreen(musicViewModel: MusicViewModel) {
                 val elapsedSinceLatestUpdate = (System.currentTimeMillis() - partyPlaybackReceivedAtMs)
                     .coerceAtLeast(0L)
                 val currentHostPlayback = latestPlayback ?: return@launch
-                val targetPosition = (currentHostPlayback.positionMs +
-                    if (currentHostPlayback.isPlaying) elapsedSinceLatestUpdate else 0L).coerceAtLeast(0L)
+                val targetPosition = PartyPlaybackSyncPolicy.targetPosition(
+                    positionMs = currentHostPlayback.positionMs,
+                    isPlaying = currentHostPlayback.isPlaying,
+                    elapsedSinceUpdateMs = elapsedSinceLatestUpdate
+                )
                 val elapsedResolvingMs = System.currentTimeMillis() - resolveStartTime
                 Log.d(
                     "AuraPartySync",
