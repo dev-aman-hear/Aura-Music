@@ -576,7 +576,7 @@ fun MusicScreen(musicViewModel: MusicViewModel) {
                     durationMs = resolved.durationSeconds * 1000L
                 )
                 onlinePlaybackManager.playSong(resolved, startPositionMs = targetPosition)
-                onlinePlaybackManager.setPlaying(currentHostPlayback.isPlaying)
+                if (!currentHostPlayback.isPlaying) onlinePlaybackManager.setPlaying(false)
             } catch (e: kotlinx.coroutines.CancellationException) {
                 throw e
             } catch (e: Exception) {
