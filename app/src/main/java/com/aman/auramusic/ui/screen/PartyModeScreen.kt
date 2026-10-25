@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -59,7 +60,22 @@ import androidx.compose.ui.unit.dp
 import com.aman.auramusic.party.LocalPartyServer
 import com.aman.auramusic.party.PartyConnectionMode
 import com.aman.auramusic.party.PartyModeRepository
+import com.aman.auramusic.party.PartyQrHelper
 import com.aman.auramusic.party.PartyRole
+import com.aman.auramusic.party.ScannedParty
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.layout.width
+import androidx.compose.material.icons.filled.PhotoLibrary
+import androidx.compose.material.icons.filled.QrCode2
+import androidx.compose.material.icons.filled.QrCodeScanner
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TextButton
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
+import com.journeyapps.barcodescanner.ScanContract
+import com.journeyapps.barcodescanner.ScanOptions
 import kotlinx.coroutines.launch
 
 @Composable
@@ -79,6 +95,46 @@ fun PartyModeScreen(
     var localPairingCode by remember { mutableStateOf("") }
     var requestTitle by remember { mutableStateOf("") }
     var requestArtist by remember { mutableStateOf("") }
+    var showQrDialog by remember { mutableStateOf(false) }
+
+    fun handleScannedCode(raw: String) {
+        val parsed = PartyQrHelper.parsePartyQr(raw)
+        if (parsed != null) {
+            when (parsed) {
+                is ScannedParty.Internet -> {
+                    pairingCode = parsed.code
+                    Toast.makeText(context, "Joining Internet Party: ${parsed.code}", Toast.LENGTH_SHORT).show()
+                    scope.launch { repository.joinParty(parsed.code, displayName) }
+                }
+                is ScannedParty.Local -> {
+                    localHostAddress = parsed.host
+                    localPairingCode = parsed.code
+                    Toast.makeText(context, "Joining Local Party at ${parsed.host}…", Toast.LENGTH_SHORT).show()
+                    scope.launch { repository.joinLocalParty(parsed.host, parsed.code, displayName) }
+                }
+            }
+        } else {
+            Toast.makeText(context, "Invalid or unrecognized party QR code", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    val cameraScannerLauncher = rememberLauncherForActivityResult(ScanContract()) { result ->
+        val contents = result.contents
+        if (!contents.isNullOrBlank()) {
+            handleScannedCode(contents)
+        }
+    }
+
+    val galleryPickerLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        if (uri != null) {
+            val decoded = PartyQrHelper.decodeQrFromUri(context, uri)
+            if (!decoded.isNullOrBlank()) {
+                handleScannedCode(decoded)
+            } else {
+                Toast.makeText(context, "No QR code found in selected image", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
 
     LaunchedEffect(state.session) {
         if (state.session == null) repository.startLocalDiscovery()
@@ -93,6 +149,7 @@ fun PartyModeScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .statusBarsPadding()
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 18.dp, vertical = 14.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
@@ -125,42 +182,54 @@ fun PartyModeScreen(
                 }
             }
 
-            // Hero card keeps the key limitation visible without dominating the screen.
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(28.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
-            ) {
-                Column(
-                    modifier = Modifier.padding(20.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
+            if (state.session == null) {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(22.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Icon(Icons.Default.MusicNote, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                        Text("Shared playback", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                    }
-                    Text(
-                        "Aura Music sends track metadata and playback controls—not audio. Each listener plays the track from their own supported source.",
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        InfoPill(text = "Internet")
-                        InfoPill(text = "Local Wi-Fi")
-                        InfoPill(text = "No audio relay")
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            Surface(shape = RoundedCornerShape(14.dp), color = MaterialTheme.colorScheme.surface) {
+                                Icon(Icons.Default.QrCodeScanner, contentDescription = null, modifier = Modifier.padding(10.dp), tint = MaterialTheme.colorScheme.primary)
+                            }
+                            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                Text("Scan party QR code", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                                Text("Instantly join an Internet or Local Wi-Fi party", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                            Button(
+                                onClick = {
+                                    val options = ScanOptions().apply {
+                                        setDesiredBarcodeFormats(ScanOptions.QR_CODE)
+                                        setPrompt("Scan party QR code")
+                                        setBeepEnabled(true)
+                                        setOrientationLocked(false)
+                                    }
+                                    cameraScannerLauncher.launch(options)
+                                },
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Icon(Icons.Default.QrCodeScanner, contentDescription = null, modifier = Modifier.size(18.dp))
+                                Spacer(Modifier.width(6.dp))
+                                Text("Scan QR")
+                            }
+                            OutlinedButton(
+                                onClick = { galleryPickerLauncher.launch("image/*") }
+                            ) {
+                                Icon(Icons.Default.PhotoLibrary, contentDescription = "Pick image from gallery")
+                                Spacer(Modifier.width(6.dp))
+                                Text("Gallery")
+                            }
+                        }
                     }
                 }
-            }
 
-            if (state.session == null) {
                 SectionHeading(title = "Start a party", subtitle = "Create a room, then invite listeners.")
-                OutlinedTextField(
-                    value = displayName,
-                    onValueChange = { displayName = it.take(32) },
-                    modifier = Modifier.fillMaxWidth(),
-                    label = { Text("Display name (optional)") },
-                    placeholder = { Text("Aura listener") },
-                    singleLine = true
-                )
 
                 Card(
                     modifier = Modifier.fillMaxWidth(),
@@ -371,16 +440,43 @@ fun PartyModeScreen(
                                 }) {
                                     Icon(Icons.Default.ContentCopy, contentDescription = "Copy invite code")
                                 }
+                                IconButton(onClick = { showQrDialog = true }) {
+                                    Icon(Icons.Default.QrCode2, contentDescription = "Show Party QR code")
+                                }
                             }
                         }
 
                         if (session.connectionMode == PartyConnectionMode.LOCAL_WIFI) {
                             val hostAddress = session.hostAddress
                             if (!hostAddress.isNullOrBlank()) {
-                                Text(
-                                    if (isHost) "Share this address: $hostAddress:${LocalPartyServer.DEFAULT_PORT}" else "Host address: $hostAddress",
-                                    style = MaterialTheme.typography.bodyMedium
-                                )
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = if (isHost) "Share this address: $hostAddress:${LocalPartyServer.DEFAULT_PORT}" else "Host address: $hostAddress",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                    IconButton(onClick = {
+                                        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                                        clipboard.setPrimaryClip(ClipData.newPlainText("Party Host IP", hostAddress))
+                                        Toast.makeText(context, "Host address copied", Toast.LENGTH_SHORT).show()
+                                    }) {
+                                        Icon(Icons.Default.ContentCopy, contentDescription = "Copy host address")
+                                    }
+                                }
+                            }
+                        }
+
+                        if (isHost) {
+                            OutlinedButton(
+                                onClick = { showQrDialog = true },
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Icon(Icons.Default.QrCode2, contentDescription = null, modifier = Modifier.size(18.dp))
+                                Spacer(Modifier.width(8.dp))
+                                Text("Show Party QR Code")
                             }
                         }
 
@@ -576,6 +672,71 @@ fun PartyModeScreen(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center,
                 modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
+            )
+        }
+
+        if (showQrDialog && state.session != null) {
+            val currentSession = state.session!!
+            val qrPayload = remember(currentSession) {
+                if (currentSession.connectionMode == PartyConnectionMode.LOCAL_WIFI) {
+                    val hostIp = currentSession.hostAddress ?: "127.0.0.1"
+                    PartyQrHelper.createLocalPayload(hostIp, LocalPartyServer.DEFAULT_PORT, currentSession.pairingCode)
+                } else {
+                    PartyQrHelper.createInternetPayload(currentSession.pairingCode)
+                }
+            }
+            val qrBitmap = remember(qrPayload) {
+                PartyQrHelper.generateQrBitmap(qrPayload, 600)
+            }
+
+            AlertDialog(
+                onDismissRequest = { showQrDialog = false },
+                title = {
+                    Text(
+                        if (currentSession.connectionMode == PartyConnectionMode.LOCAL_WIFI) "Local Party QR Code" else "Internet Party QR Code",
+                        fontWeight = FontWeight.Bold
+                    )
+                },
+                text = {
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(14.dp)
+                    ) {
+                        Text(
+                            "Have other listeners scan this QR code with Aura Music to join immediately.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = TextAlign.Center
+                        )
+                        if (qrBitmap != null) {
+                            Surface(
+                                shape = RoundedCornerShape(16.dp),
+                                color = Color.White,
+                                modifier = Modifier.padding(8.dp)
+                            ) {
+                                Image(
+                                    bitmap = qrBitmap.asImageBitmap(),
+                                    contentDescription = "Party QR Code",
+                                    modifier = Modifier
+                                        .size(240.dp)
+                                        .padding(12.dp)
+                                )
+                            }
+                        }
+                        Text(
+                            text = "Code: ${currentSession.pairingCode}" + if (currentSession.connectionMode == PartyConnectionMode.LOCAL_WIFI && !currentSession.hostAddress.isNullOrBlank()) "\nHost: ${currentSession.hostAddress}:${LocalPartyServer.DEFAULT_PORT}" else "",
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                },
+                confirmButton = {
+                    TextButton(onClick = { showQrDialog = false }) {
+                        Text("Close")
+                    }
+                }
             )
         }
     }
