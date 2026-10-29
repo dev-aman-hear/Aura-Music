@@ -47,7 +47,7 @@ class MusicRepository(private val context: Context) {
                 val artist = cursor.getString(artistCol).orUnknown("Unknown Artist")
                 val album = cursor.getString(albumCol).orUnknown("Unknown Album")
 
-                if (isCallRecording(title, artist, album, path)) continue
+                if (CallRecordingFilter.shouldExclude(title, artist, album, path)) continue
 
                 songs.add(
                     Song(
@@ -184,45 +184,6 @@ class MusicRepository(private val context: Context) {
 
     private fun String?.orUnknown(fallback: String): String {
         return if ((this.isNullOrBlank()) || this == "<unknown>") fallback else this
-    }
-
-    private fun isCallRecording(
-        title: String,
-        artist: String,
-        album: String,
-        filePath: String?
-    ): Boolean {
-        // Quick folder check first
-        if (filePath != null) {
-            val lowerPath = filePath.lowercase()
-            if (folderExclusionMarkers.any { lowerPath.contains(it) }) return true
-        }
-
-        // Then check searchable text
-        val searchableText = (title + artist + album + (filePath ?: "")).lowercase()
-
-        return callRecordingMarkers.any { searchableText.contains(it) }
-    }
-
-    private companion object {
-        val folderExclusionMarkers = listOf(
-            "/recordings/",
-            "/voicerecorder/",
-            "/voice recorder/",
-            "/call recorder/",
-            "/callrecorder/",
-            "/miui/sound_recorder/",
-            "/standardrecorder/",
-            "/recordings/voice/"
-        )
-
-        val callRecordingMarkers = listOf(
-            "call recording",
-            "call recordings",
-            "callrecorder",
-            "phone recording",
-            "recorded call"
-        )
     }
 
 }
